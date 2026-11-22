@@ -25,12 +25,14 @@ interface RichTextEditorProps {
   placeholder?: string;
 }
 
-function toInitialHtml(raw: string): string {
-  const trimmed = raw.trim();
-  if (!trimmed) return '';
-  if (/<[a-z][\s\S]*>/i.test(trimmed)) return trimmed;
-  return trimmed
-    .split('\n\n')
+export function ensureHtmlContent(raw: string): string {
+  const normalized = raw.replace(/\\r\\n/g, '\n').replace(/\\n/g, '\n').trim();
+  if (!normalized) return '';
+  if (/<[a-z][\s\S]*>/i.test(normalized)) {
+    return normalized.replace(/\n{2,}/g, '</p><p>').replace(/\n/g, '<br />');
+  }
+  return normalized
+    .split(/\n{2,}/)
     .map((para) => `<p>${para.replace(/\n/g, '<br />')}</p>`)
     .join('');
 }
@@ -54,7 +56,7 @@ export const RichTextEditor: React.FC<RichTextEditorProps> = ({
   useEffect(() => {
     const el = editorRef.current;
     if (!el) return;
-    const normalized = toInitialHtml(value);
+    const normalized = ensureHtmlContent(value);
     if (normalized !== lastHtmlRef.current && el.innerHTML !== normalized) {
       el.innerHTML = normalized;
       lastHtmlRef.current = normalized;

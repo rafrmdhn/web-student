@@ -1,6 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react';
 import {
-  Compass,
   KeyRound,
   LogOut,
   Megaphone,
@@ -11,6 +10,7 @@ import {
 } from 'lucide-react';
 import { useApp } from '../../context/AppContext';
 import type { UserRole } from '../../types';
+import { BrandLogo } from '../common/BrandLogo';
 import { Modal } from '../common/Modal';
 
 export interface DashboardNavItem {
@@ -144,9 +144,11 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({
             onClick={() => handleSelectNav('ringkasan')}
             className="flex items-center gap-2.5 text-left"
           >
-            <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-accent text-white">
-              <Compass className="h-4 w-4" />
-            </span>
+            <BrandLogo
+              logoUrl={siteSettings.logo_url}
+              siteName={siteSettings.site_name}
+              size="sm"
+            />
             <div>
               <span className="block font-display text-base font-bold leading-tight text-ink">
                 {siteSettings.site_name}

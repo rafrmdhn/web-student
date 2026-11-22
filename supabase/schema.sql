@@ -132,6 +132,7 @@ create table if not exists public.site_settings (
   id int primary key default 1 check (id = 1),
   site_name text not null default 'ArahDiri',
   tagline text not null default 'Ruang Bimbingan Konseling dan Pemetaan Potensi Siswa',
+  logo_url text,
   accent_color text not null default 'teal' check (accent_color in ('teal', 'blue', 'indigo', 'emerald')),
   show_announcement_banner boolean not null default true
 );

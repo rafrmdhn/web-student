@@ -25,7 +25,11 @@ import {
 } from 'recharts';
 import { Modal } from '../../components/common/Modal';
 import { PotentialRadarChart } from '../../components/common/PotentialRadarChart';
-import { RichTextEditor, stripHtml } from '../../components/common/RichTextEditor';
+import {
+  RichTextEditor,
+  ensureHtmlContent,
+  stripHtml,
+} from '../../components/common/RichTextEditor';
 import { StatCard } from '../../components/common/StatCard';
 import {
   DashboardLayout,
@@ -155,7 +159,7 @@ export const CounselorDashboard: React.FC = () => {
     setMatTitle(mat.title);
     setMatCategory(mat.category);
     setMatSummary(mat.summary);
-    setMatContent(mat.content);
+    setMatContent(ensureHtmlContent(mat.content));
     setMatStatus(mat.status);
     setMatModalOpen(true);
   };
@@ -209,14 +213,15 @@ export const CounselorDashboard: React.FC = () => {
   // Submit handlers
   const handleSaveMaterial = async (e: React.FormEvent) => {
     e.preventDefault();
-    const plainText = stripHtml(matContent);
+    const htmlContent = ensureHtmlContent(matContent);
+    const plainText = stripHtml(htmlContent);
     if (!matTitle.trim() || !plainText) return;
     await saveMaterial(
       {
         title: matTitle.trim(),
         category: matCategory.trim(),
         summary: matSummary.trim() || plainText.slice(0, 140),
-        content: matContent.trim(),
+        content: htmlContent,
         status: matStatus,
       },
       editMatId

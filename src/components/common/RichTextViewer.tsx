@@ -5,13 +5,13 @@ interface RichTextViewerProps {
 }
 
 function sanitizeHtml(raw: string): string {
-  const trimmed = raw.trim();
-  if (!trimmed) return '';
+  const normalized = raw.replace(/\\r\\n/g, '\n').replace(/\\n/g, '\n').trim();
+  if (!normalized) return '';
 
-  const html = /<[a-z][\s\S]*>/i.test(trimmed)
-    ? trimmed
-    : trimmed
-        .split('\n\n')
+  const html = /<[a-z][\s\S]*>/i.test(normalized)
+    ? normalized.replace(/\n{2,}/g, '<br /><br />').replace(/\n/g, '<br />')
+    : normalized
+        .split(/\n{2,}/)
         .map((para) => `<p>${para.replace(/\n/g, '<br />')}</p>`)
         .join('');
 

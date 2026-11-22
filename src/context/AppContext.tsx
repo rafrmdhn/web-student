@@ -50,6 +50,7 @@ const EMPTY_DB: AppDatabase = {
     id: 1,
     site_name: 'ArahDiri',
     tagline: 'Ruang Bimbingan Konseling dan Pemetaan Potensi Siswa',
+    logo_url: null,
     accent_color: 'teal',
     show_announcement_banner: true,
   },
@@ -241,10 +242,21 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     }, 3600);
   }, []);
 
-  // Apply live accent theme and page title
+  // Apply live accent theme, page title, and favicon
   useEffect(() => {
     document.documentElement.setAttribute('data-accent', db.siteSettings.accent_color);
     document.title = `${db.siteSettings.site_name} — ${db.siteSettings.tagline}`;
+
+    const logoUrl = db.siteSettings.logo_url?.trim();
+    if (logoUrl) {
+      let link = document.querySelector<HTMLLinkElement>("link[rel='icon']");
+      if (!link) {
+        link = document.createElement('link');
+        link.rel = 'icon';
+        document.head.appendChild(link);
+      }
+      link.href = logoUrl;
+    }
   }, [db.siteSettings]);
 
   // Load all data from Supabase

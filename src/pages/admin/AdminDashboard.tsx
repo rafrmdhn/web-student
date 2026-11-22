@@ -7,7 +7,9 @@ import {
   Megaphone,
   Palette,
   Plus,
+  RotateCcw,
   Trash2,
+  Upload,
   UserCog,
   Users,
 } from 'lucide-react';
@@ -20,6 +22,7 @@ import {
   XAxis,
   YAxis,
 } from 'recharts';
+import { BrandLogo } from '../../components/common/BrandLogo';
 import { Modal } from '../../components/common/Modal';
 import { StatCard } from '../../components/common/StatCard';
 import {
@@ -74,15 +77,66 @@ export const AdminDashboard: React.FC = () => {
   // Site settings form
   const [sName, setSName] = useState(siteSettings.site_name);
   const [sTagline, setSTagline] = useState(siteSettings.tagline);
+  const [sLogoUrl, setSLogoUrl] = useState(siteSettings.logo_url ?? '');
+  const [logoError, setLogoError] = useState('');
   const [sAccent, setSAccent] = useState<AccentColor>(siteSettings.accent_color);
   const [sShowBanner, setSShowBanner] = useState(siteSettings.show_announcement_banner);
 
   useEffect(() => {
     setSName(siteSettings.site_name);
     setSTagline(siteSettings.tagline);
+    setSLogoUrl(siteSettings.logo_url ?? '');
     setSAccent(siteSettings.accent_color);
     setSShowBanner(siteSettings.show_announcement_banner);
   }, [siteSettings]);
+
+  const handleLogoFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    setLogoError('');
+    const file = e.target.files?.[0];
+    if (!file) return;
+    if (!file.type.startsWith('image/')) {
+      setLogoError('Pilih file gambar (PNG, JPG, SVG, atau WebP).');
+      return;
+    }
+    if (file.size > 2 * 1024 * 1024) {
+      setLogoError('Ukuran file maksimal 2 MB.');
+      return;
+    }
+
+    const reader = new FileReader();
+    reader.onload = () => {
+      const result = typeof reader.result === 'string' ? reader.result : '';
+      if (!result) return;
+
+      // SVG can be stored directly if small; raster images are resized to max 256px
+      if (file.type === 'image/svg+xml') {
+        setSLogoUrl(result);
+        return;
+      }
+
+      const img = new Image();
+      img.onload = () => {
+        const maxDim = 256;
+        const scale = Math.min(1, maxDim / Math.max(img.width, img.height));
+        const width = Math.max(1, Math.round(img.width * scale));
+        const height = Math.max(1, Math.round(img.height * scale));
+        const canvas = document.createElement('canvas');
+        canvas.width = width;
+        canvas.height = height;
+        const ctx = canvas.getContext('2d');
+        if (!ctx) {
+          setSLogoUrl(result);
+          return;
+        }
+        ctx.drawImage(img, 0, 0, width, height);
+        setSLogoUrl(canvas.toDataURL('image/png'));
+      };
+      img.onerror = () => setLogoError('File gambar tidak dapat dibaca.');
+      img.src = result;
+    };
+    reader.readAsDataURL(file);
+    e.target.value = '';
+  };
 
   // Modal: Reset Password (Admin)
   const [resetTarget, setResetTarget] = useState<Profile | null>(null);
@@ -195,6 +249,7 @@ export const AdminDashboard: React.FC = () => {
     await updateSiteSettings({
       site_name: sName.trim() || 'ArahDiri',
       tagline: sTagline.trim(),
+      logo_url: sLogoUrl.trim() || null,
       accent_color: sAccent,
       show_announcement_banner: sShowBanner,
     });
@@ -489,6 +544,61 @@ export const AdminDashboard: React.FC = () => {
             <p className="mt-1 text-xs text-ink-muted">
               Perubahan langsung diterapkan ke seluruh dashboard secara live.
             </p>
+          </div>
+
+          <div className="rounded-xl bg-canvas p-4">
+            <span className="block text-xs font-medium text-ink">Logo website</span>
+            <div className="mt-3 flex flex-wrap items-center gap-4">
+              <BrandLogo logoUrl={sLogoUrl} siteName={sName || 'ArahDiri'} size="lg" />
+              <div className="flex flex-wrap items-center gap-2">
+                <label className="inline-flex cursor-pointer items-center gap-2 rounded-lg border border-line bg-paper px-3.5 py-2 text-xs font-semibold text-ink transition-colors hover:bg-subtle">
+                  <Upload className="h-3.5 w-3.5 text-accent" />
+                  <span>Unggah logo</span>
+                  <input
+                    type="file"
+                    accept="image/png,image/jpeg,image/webp,image/svg+xml"
+                    onChange={handleLogoFileChange}
+                    className="hidden"
+                  />
+                </label>
+                {sLogoUrl && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setSLogoUrl('');
+                      setLogoError('');
+                    }}
+                    className="inline-flex items-center gap-1.5 rounded-lg border border-line bg-paper px-3 py-2 text-xs font-medium text-ink-muted hover:bg-subtle hover:text-ink"
+                  >
+                    <RotateCcw className="h-3.5 w-3.5" />
+                    <span>Gunakan ikon bawaan</span>
+                  </button>
+                )}
+              </div>
+            </div>
+
+            <div className="mt-3">
+              <label className="block text-[11px] font-medium text-ink-muted" htmlFor="set-logo-url">
+                Atau tempel URL gambar logo (opsional)
+              </label>
+              <input
+                id="set-logo-url"
+                type="text"
+                value={sLogoUrl.startsWith('data:image/') ? '' : sLogoUrl}
+                onChange={(e) => {
+                  setLogoError('');
+                  setSLogoUrl(e.target.value);
+                }}
+                placeholder={
+                  sLogoUrl.startsWith('data:image/')
+                    ? 'Logo berhasil diunggah dari perangkat (klik Simpan untuk menerapkan)'
+                    : 'https://contoh.sch.id/logo.png'
+                }
+                className="mt-1 w-full rounded-lg border border-line bg-paper px-3 py-2 text-xs text-ink"
+              />
+            </div>
+
+            {logoError && <p className="mt-2 text-xs text-red-700">{logoError}</p>}
           </div>
 
           <div>

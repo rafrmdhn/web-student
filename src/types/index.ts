@@ -134,6 +134,7 @@ export interface SiteSettings {
   id: number;
   site_name: string;
   tagline: string;
+  logo_url?: string | null;
   accent_color: AccentColor;
   show_announcement_banner: boolean;
 }

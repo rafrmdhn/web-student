@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
-import { AlertTriangle, Compass } from 'lucide-react';
+import { AlertTriangle } from 'lucide-react';
+import { BrandLogo } from '../components/common/BrandLogo';
 import { useApp } from '../context/AppContext';
 import type { UserRole } from '../types';
 
@@ -46,9 +47,11 @@ export const AuthPage: React.FC = () => {
     <div className="flex min-h-screen items-center justify-center bg-canvas px-4 py-10 sm:px-6">
       <div className="w-full max-w-md rounded-2xl border border-line bg-paper p-6 sm:p-8">
             <div className="flex items-center gap-2.5">
-              <span className="flex h-9 w-9 items-center justify-center rounded-lg bg-accent text-white">
-                <Compass className="h-5 w-5" />
-              </span>
+              <BrandLogo
+                logoUrl={siteSettings.logo_url}
+                siteName={siteSettings.site_name}
+                size="md"
+              />
               <div>
                 <h1 className="font-display text-xl font-bold text-ink">
                   {siteSettings.site_name}
