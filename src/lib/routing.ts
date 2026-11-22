@@ -9,7 +9,7 @@ export const ROLE_PATH_PREFIX: Record<UserRole, string> = {
 const ROLE_TAB_TO_SLUG: Record<UserRole, Record<string, string>> = {
   siswa: {
     ringkasan: 'beranda',
-    'kenali-diriku': 'kenali-diriku',
+    materi: 'materi',
     'peta-potensi': 'peta-potensi',
     'rencana-masa-depan': 'rencana-masa-depan',
     refleksi: 'refleksi',

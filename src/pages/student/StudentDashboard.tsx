@@ -299,7 +299,7 @@ export const StudentDashboard: React.FC = () => {
                 <h2 className="font-display text-lg font-semibold text-ink">Pintasan cepat</h2>
                 <div className="mt-4 grid grid-cols-2 gap-2.5">
                   {[
-                    { tab: 'kenali-diriku', label: 'Baca Materi' },
+                    { tab: 'materi', label: 'Baca Materi' },
                     { tab: 'peta-potensi', label: 'Ubah Peta Potensi' },
                     { tab: 'rencana-masa-depan', label: 'Kelola Rencana' },
                     { tab: 'privasi-bantuan', label: 'Atur Privasi' },
