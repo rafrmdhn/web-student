@@ -256,6 +256,21 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     const sessionUserId = sessionUser?.id ?? null;
     setLoading(true);
     try {
+      // Before login, only load public site_settings (avoid querying private tables while unauthenticated)
+      if (!sessionUserId) {
+        const settingsRes = await supabase
+          .from('site_settings')
+          .select('*')
+          .eq('id', 1)
+          .maybeSingle();
+
+        setDb((prev) => ({
+          ...EMPTY_DB,
+          siteSettings: (settingsRes.data as SiteSettings) ?? prev.siteSettings,
+        }));
+        return;
+      }
+
       const [
         profilesRes,
         materialsRes,

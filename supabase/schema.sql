@@ -374,3 +374,14 @@ $$;
 
 revoke all on function public.admin_reset_user_password(uuid, text) from public;
 grant execute on function public.admin_reset_user_password(uuid, text) to authenticated;
+
+
+-- ============================================================================
+-- Izin Level Tabel untuk Role anon & authenticated (RLS tetap aktif)
+-- ============================================================================
+grant usage on schema public to anon, authenticated;
+grant select, insert, update, delete on all tables in schema public to authenticated;
+grant usage, select on all sequences in schema public to authenticated;
+grant select on public.site_settings, public.announcements, public.consultation_info to anon;
+grant execute on function public.current_user_role() to anon, authenticated;
+grant execute on function public.student_allows_sharing(uuid) to anon, authenticated;
