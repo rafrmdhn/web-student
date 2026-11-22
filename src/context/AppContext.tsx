@@ -1,5 +1,11 @@
-import React, { createContext, useContext, useEffect, useMemo, useState } from 'react';
-import { INITIAL_DEMO_DB, type DemoDatabase } from '../data/seedData';
+import React, { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react';
+import type { User } from '@supabase/supabase-js';
+import {
+  getDefaultPathForRole,
+  getPathForTab,
+  navigateToPath,
+  parsePathname,
+} from '../lib/routing';
 import { isSupabaseConfigured, supabase } from '../lib/supabase';
 import type {
   ActionStep,
@@ -15,6 +21,7 @@ import type {
   MaterialStatus,
   PlanTimeframe,
   PotentialMap,
+  PotentialQuestion,
   Profile,
   ReflectionActivity,
   SiteSettings,
@@ -22,8 +29,43 @@ import type {
   UserRole,
 } from '../types';
 
-const STORAGE_KEY = 'arahdiri_demo_db_v1';
-const DEMO_USER_KEY = 'arahdiri_demo_user_id_v1';
+interface AppDatabase {
+  profiles: Profile[];
+  materials: Material[];
+  materialProgress: MaterialProgress[];
+  reflectionActivities: ReflectionActivity[];
+  studentReflections: StudentReflection[];
+  potentialQuestions: PotentialQuestion[];
+  potentialMaps: PotentialMap[];
+  futurePlans: FuturePlan[];
+  counselorFollowups: CounselorFollowup[];
+  consultationInfo: ConsultationInfo[];
+  announcements: Announcement[];
+  siteSettings: SiteSettings;
+  activityLogs: ActivityLog[];
+}
+
+const EMPTY_DB: AppDatabase = {
+  siteSettings: {
+    id: 1,
+    site_name: 'ArahDiri',
+    tagline: 'Ruang Bimbingan Konseling dan Pemetaan Potensi Siswa',
+    accent_color: 'teal',
+    show_announcement_banner: true,
+  },
+  profiles: [],
+  materials: [],
+  materialProgress: [],
+  reflectionActivities: [],
+  studentReflections: [],
+  potentialQuestions: [],
+  potentialMaps: [],
+  futurePlans: [],
+  counselorFollowups: [],
+  consultationInfo: [],
+  announcements: [],
+  activityLogs: [],
+};
 
 interface ToastMessage {
   id: string;
@@ -32,7 +74,7 @@ interface ToastMessage {
 }
 
 interface AppContextValue {
-  mode: 'supabase' | 'demo';
+  isConfigured: boolean;
   loading: boolean;
   view: AppView;
   setView: (view: AppView) => void;
@@ -48,6 +90,9 @@ interface AppContextValue {
   materialProgress: MaterialProgress[];
   reflectionActivities: ReflectionActivity[];
   studentReflections: StudentReflection[];
+  potentialQuestions: PotentialQuestion[];
+  potentialQuestionsError: string | null;
+  reloadPotentialQuestions: () => Promise<void>;
   potentialMaps: PotentialMap[];
   futurePlans: FuturePlan[];
   counselorFollowups: CounselorFollowup[];
@@ -56,7 +101,7 @@ interface AppContextValue {
   siteSettings: SiteSettings;
   activityLogs: ActivityLog[];
 
-  // Auth & Navigation
+  // Auth
   loginWithEmail: (email: string, password: string) => Promise<{ ok: boolean; error?: string }>;
   registerWithEmail: (input: {
     full_name: string;
@@ -65,11 +110,12 @@ interface AppContextValue {
     class_name: string;
     role: UserRole;
   }) => Promise<{ ok: boolean; error?: string }>;
+  changePassword: (newPassword: string) => Promise<{ ok: boolean; error?: string }>;
+  adminResetUserPassword: (
+    targetUserId: string,
+    newPassword: string
+  ) => Promise<{ ok: boolean; error?: string }>;
   logout: () => Promise<void>;
-  loginDemoByRole: (role: UserRole, targetTab?: string) => void;
-  loginDemoById: (profileId: string, targetTab?: string) => void;
-  openDashboardTab: (role: UserRole, tab?: string) => void;
-  resetDemoData: () => void;
 
   // Student Actions
   toggleMaterialCompleted: (materialId: string) => Promise<void>;
@@ -144,67 +190,56 @@ interface AppContextValue {
 
 const AppContext = createContext<AppContextValue | undefined>(undefined);
 
-function uid(prefix: string): string {
-  if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') {
-    return `${prefix}-${crypto.randomUUID().slice(0, 8)}`;
-  }
-  return `${prefix}-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`;
+function toastId(): string {
+  return `toast-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`;
 }
 
-function loadDemoDb(): DemoDatabase {
-  try {
-    const raw = localStorage.getItem(STORAGE_KEY);
-    if (!raw) return structuredClone(INITIAL_DEMO_DB);
-    const parsed = JSON.parse(raw) as Partial<DemoDatabase>;
-    return {
-      ...structuredClone(INITIAL_DEMO_DB),
-      ...parsed,
-      siteSettings: {
-        ...INITIAL_DEMO_DB.siteSettings,
-        ...(parsed.siteSettings ?? {}),
-      },
-    };
-  } catch {
-    return structuredClone(INITIAL_DEMO_DB);
-  }
+function profileFromAuthUser(user: User): Profile {
+  const meta = (user.user_metadata ?? {}) as Record<string, unknown>;
+  const rawRole = meta.role;
+  const role: UserRole =
+    rawRole === 'admin' || rawRole === 'guru_bk' || rawRole === 'siswa' ? rawRole : 'siswa';
+  const email = user.email ?? '';
+  const fullName =
+    typeof meta.full_name === 'string' && meta.full_name.trim()
+      ? meta.full_name.trim()
+      : email.split('@')[0] || 'Pengguna';
+  const className =
+    typeof meta.class_name === 'string' && meta.class_name.trim()
+      ? meta.class_name.trim()
+      : role === 'siswa'
+        ? 'XI IPA 1'
+        : 'Staf Sekolah';
+
+  return {
+    id: user.id,
+    full_name: fullName,
+    email,
+    role,
+    class_name: className,
+    is_active: true,
+    share_activity_consent: false,
+    created_at: user.created_at ?? new Date().toISOString(),
+  };
 }
 
 export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const mode: 'supabase' | 'demo' = isSupabaseConfigured ? 'supabase' : 'demo';
-
-  const [db, setDb] = useState<DemoDatabase>(() => loadDemoDb());
-  const [loading, setLoading] = useState<boolean>(mode === 'supabase');
-  const [currentUserId, setCurrentUserId] = useState<string | null>(() => {
-    if (mode === 'demo') {
-      return localStorage.getItem(DEMO_USER_KEY) ?? INITIAL_DEMO_DB.profiles[0]?.id ?? null;
-    }
-    return null;
-  });
-  const [view, setView] = useState<AppView>(() => (mode === 'demo' ? 'dashboard' : 'auth'));
-  const [activeTab, setActiveTab] = useState<string>('ringkasan');
+  const [db, setDb] = useState<AppDatabase>(EMPTY_DB);
+  const [loading, setLoading] = useState<boolean>(isSupabaseConfigured);
+  const [authUser, setAuthUser] = useState<User | null>(null);
+  const [currentUserId, setCurrentUserId] = useState<string | null>(null);
+  const [view, setView] = useState<AppView>('auth');
+  const [activeTab, setActiveTabState] = useState<string>('ringkasan');
   const [toast, setToast] = useState<ToastMessage | null>(null);
+  const [potentialQuestionsError, setPotentialQuestionsError] = useState<string | null>(null);
 
-  const showToast = (text: string, tone: 'success' | 'info' | 'error' = 'success') => {
-    const id = uid('toast');
+  const showToast = useCallback((text: string, tone: 'success' | 'info' | 'error' = 'success') => {
+    const id = toastId();
     setToast({ id, text, tone });
     window.setTimeout(() => {
       setToast((prev) => (prev?.id === id ? null : prev));
-    }, 3400);
-  };
-
-  // Persist demo DB
-  useEffect(() => {
-    if (mode === 'demo') {
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(db));
-    }
-  }, [db, mode]);
-
-  useEffect(() => {
-    if (mode === 'demo') {
-      if (currentUserId) localStorage.setItem(DEMO_USER_KEY, currentUserId);
-      else localStorage.removeItem(DEMO_USER_KEY);
-    }
-  }, [currentUserId, mode]);
+    }, 3600);
+  }, []);
 
   // Apply live accent theme and page title
   useEffect(() => {
@@ -212,9 +247,13 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     document.title = `${db.siteSettings.site_name} — ${db.siteSettings.tagline}`;
   }, [db.siteSettings]);
 
-  // Load Supabase data if configured
-  const refreshSupabaseData = async () => {
-    if (!supabase) return;
+  // Load all data from Supabase
+  const refreshSupabaseData = async (sessionUser?: User | null) => {
+    if (!supabase) {
+      setLoading(false);
+      return;
+    }
+    const sessionUserId = sessionUser?.id ?? null;
     setLoading(true);
     try {
       const [
@@ -223,6 +262,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         progressRes,
         activitiesRes,
         reflectionsRes,
+        questionsRes,
         mapsRes,
         plansRes,
         followupsRes,
@@ -236,6 +276,10 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         supabase.from('material_progress').select('*'),
         supabase.from('reflection_activities').select('*').order('due_date', { ascending: true }),
         supabase.from('student_reflections').select('*').order('created_at', { ascending: false }),
+        supabase
+          .from('potential_questions')
+          .select('*')
+          .order('question_number', { ascending: true }),
         supabase.from('potential_maps').select('*'),
         supabase.from('future_plans').select('*').order('created_at', { ascending: false }),
         supabase.from('counselor_followups').select('*').order('updated_at', { ascending: false }),
@@ -245,19 +289,72 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         supabase.from('activity_logs').select('*').order('created_at', { ascending: false }).limit(60),
       ]);
 
+      let profiles = (profilesRes.data as Profile[]) ?? [];
+
+      // Ensure active user's own profile exists in public.profiles
+      if (sessionUser && sessionUserId && !profiles.some((p) => p.id === sessionUserId)) {
+        const ownRes = await supabase
+          .from('profiles')
+          .select('*')
+          .eq('id', sessionUserId)
+          .maybeSingle();
+
+        if (ownRes.data) {
+          profiles = [ownRes.data as Profile, ...profiles];
+        } else {
+          // Self-heal missing profile row (e.g. user created manually before trigger existed)
+          const fallback = profileFromAuthUser(sessionUser);
+          const inserted = await supabase
+            .from('profiles')
+            .upsert(
+              {
+                id: fallback.id,
+                full_name: fallback.full_name,
+                email: fallback.email,
+                role: fallback.role,
+                class_name: fallback.class_name,
+              },
+              { onConflict: 'id' }
+            )
+            .select()
+            .single();
+          profiles = [(inserted.data as Profile) ?? fallback, ...profiles];
+        }
+      }
+
+      const profileNameMap = new Map(profiles.map((p) => [p.id, p.full_name]));
+      const rawLogs = (logsRes.data as ActivityLog[]) ?? [];
+      const enrichedLogs = rawLogs.map((log) => ({
+        ...log,
+        user_name: log.user_name ?? (log.user_id ? profileNameMap.get(log.user_id) : undefined),
+      }));
+
+      if (questionsRes.error) {
+        setPotentialQuestionsError(
+          `${questionsRes.error.code ?? ''} ${questionsRes.error.message}`.trim()
+        );
+      } else {
+        setPotentialQuestionsError(null);
+      }
+
+      const activeQuestions = ((questionsRes.data as PotentialQuestion[]) ?? []).filter(
+        (q) => q.is_active !== false
+      );
+
       setDb((prev) => ({
-        profiles: (profilesRes.data as Profile[]) ?? prev.profiles,
-        materials: (materialsRes.data as Material[]) ?? prev.materials,
+        profiles,
+        materials: (materialsRes.data as Material[]) ?? [],
         materialProgress: (progressRes.data as MaterialProgress[]) ?? [],
         reflectionActivities: (activitiesRes.data as ReflectionActivity[]) ?? [],
         studentReflections: (reflectionsRes.data as StudentReflection[]) ?? [],
+        potentialQuestions: activeQuestions,
         potentialMaps: (mapsRes.data as PotentialMap[]) ?? [],
         futurePlans: (plansRes.data as FuturePlan[]) ?? [],
         counselorFollowups: (followupsRes.data as CounselorFollowup[]) ?? [],
         consultationInfo: (consultationRes.data as ConsultationInfo[]) ?? [],
         announcements: (announcementsRes.data as Announcement[]) ?? [],
         siteSettings: (settingsRes.data as SiteSettings) ?? prev.siteSettings,
-        activityLogs: (logsRes.data as ActivityLog[]) ?? [],
+        activityLogs: enrichedLogs,
       }));
     } finally {
       setLoading(false);
@@ -265,92 +362,190 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   };
 
   useEffect(() => {
-    if (mode !== 'supabase' || !supabase) return;
+    if (!supabase) {
+      setLoading(false);
+      return;
+    }
+
     supabase.auth.getSession().then(({ data }) => {
-      const uidSession = data.session?.user.id ?? null;
-      setCurrentUserId(uidSession);
-      setView(uidSession ? 'dashboard' : 'auth');
-      void refreshSupabaseData();
+      const user = data.session?.user ?? null;
+      setAuthUser(user);
+      setCurrentUserId(user?.id ?? null);
+      setView(user ? 'dashboard' : 'auth');
+      void refreshSupabaseData(user);
     });
 
     const { data: listener } = supabase.auth.onAuthStateChange((_event, session) => {
-      const uidSession = session?.user.id ?? null;
-      setCurrentUserId(uidSession);
-      setView(uidSession ? 'dashboard' : 'auth');
-      void refreshSupabaseData();
+      const user = session?.user ?? null;
+      setAuthUser(user);
+      setCurrentUserId(user?.id ?? null);
+      setView(user ? 'dashboard' : 'auth');
+      void refreshSupabaseData(user);
     });
 
     return () => {
       listener.subscription.unsubscribe();
     };
-  }, [mode]);
+  }, []);
 
   const currentUser = useMemo(() => {
     if (!currentUserId) return null;
-    return db.profiles.find((p) => p.id === currentUserId) ?? null;
-  }, [db.profiles, currentUserId]);
+    const fromDb = db.profiles.find((p) => p.id === currentUserId);
+    if (fromDb) return fromDb;
+    if (authUser && authUser.id === currentUserId) {
+      return profileFromAuthUser(authUser);
+    }
+    return null;
+  }, [db.profiles, currentUserId, authUser]);
+
+  const setActiveTab = useCallback(
+    (tab: string) => {
+      setActiveTabState(tab);
+      if (currentUser) {
+        navigateToPath(getPathForTab(currentUser.role, tab), false);
+      }
+    },
+    [currentUser]
+  );
+
+  // Role-based route guard & browser Back/Forward synchronization
+  useEffect(() => {
+    if (loading) return;
+
+    const enforceRouteForCurrentState = () => {
+      const pathname = window.location.pathname;
+
+      if (!currentUser || view === 'auth') {
+        if (pathname !== '/login') {
+          navigateToPath('/login', true);
+        }
+        return;
+      }
+
+      const parsed = parsePathname(pathname);
+
+      // Block access to another role's path
+      if (parsed.matchedRole && parsed.matchedRole !== currentUser.role) {
+        const safePath = getDefaultPathForRole(currentUser.role);
+        setActiveTabState('ringkasan');
+        navigateToPath(safePath, true);
+        showToast('Akses ditolak: halaman tersebut bukan untuk peran Anda.', 'error');
+        return;
+      }
+
+      // Valid path for current user's role
+      if (parsed.matchedRole === currentUser.role && parsed.tab) {
+        setActiveTabState(parsed.tab);
+        const canonical = getPathForTab(currentUser.role, parsed.tab);
+        if (pathname !== canonical) {
+          navigateToPath(canonical, true);
+        }
+        return;
+      }
+
+      // Root, /login, or unknown slug -> redirect to user's own role path
+      const targetPath = getPathForTab(currentUser.role, activeTab);
+      navigateToPath(targetPath, true);
+    };
+
+    enforceRouteForCurrentState();
+
+    const onPopState = () => {
+      enforceRouteForCurrentState();
+    };
+    window.addEventListener('popstate', onPopState);
+    return () => {
+      window.removeEventListener('popstate', onPopState);
+    };
+  }, [loading, currentUser, view, showToast]);
 
   const appendLog = async (action: string, module: string, detail: string) => {
-    const newLog: ActivityLog = {
-      id: uid('log'),
-      user_id: currentUser?.id ?? null,
-      user_name: currentUser?.full_name ?? 'Pengguna',
-      action,
-      module,
-      detail,
-      created_at: new Date().toISOString(),
-    };
-    if (mode === 'supabase' && supabase && currentUser) {
-      await supabase.from('activity_logs').insert({
+    if (!supabase || !currentUser) return;
+    const { data } = await supabase
+      .from('activity_logs')
+      .insert({
         user_id: currentUser.id,
         action,
         module,
         detail,
-      });
+      })
+      .select()
+      .single();
+
+    if (data) {
+      const inserted: ActivityLog = {
+        ...(data as ActivityLog),
+        user_name: currentUser.full_name,
+      };
+      setDb((prev) => ({
+        ...prev,
+        activityLogs: [inserted, ...prev.activityLogs].slice(0, 80),
+      }));
     }
-    setDb((prev) => ({
-      ...prev,
-      activityLogs: [newLog, ...prev.activityLogs].slice(0, 80),
-    }));
   };
 
-  // Auth methods
+  const reloadPotentialQuestions = async () => {
+    if (!supabase) return;
+    const { data, error } = await supabase
+      .from('potential_questions')
+      .select('*')
+      .order('question_number', { ascending: true });
+    if (error) {
+      setPotentialQuestionsError(`${error.code ?? ''} ${error.message}`.trim());
+      showToast(`Gagal memuat pertanyaan: ${error.message}`, 'error');
+      return;
+    }
+    setPotentialQuestionsError(null);
+    const activeQuestions = ((data as PotentialQuestion[]) ?? []).filter(
+      (q) => q.is_active !== false
+    );
+    setDb((prev) => ({ ...prev, potentialQuestions: activeQuestions }));
+    showToast(`${activeQuestions.length} pertanyaan berhasil dimuat dari database.`);
+  };
+
+  // Auth methods (Supabase Auth only)
   const loginWithEmail = async (
     email: string,
     password: string
   ): Promise<{ ok: boolean; error?: string }> => {
-    const normalizedEmail = email.trim().toLowerCase();
-    if (mode === 'supabase' && supabase) {
-      const { data, error } = await supabase.auth.signInWithPassword({
-        email: normalizedEmail,
-        password,
-      });
-      if (error) return { ok: false, error: error.message };
-      setCurrentUserId(data.user.id);
-      await refreshSupabaseData();
-      setActiveTab('ringkasan');
-      setView('dashboard');
-      showToast('Berhasil masuk ke dashboard.');
-      return { ok: true };
-    }
-
-    const found = db.profiles.find((p) => p.email.toLowerCase() === normalizedEmail);
-    if (!found) {
+    if (!supabase) {
       return {
         ok: false,
-        error: 'Email belum terdaftar di Mode Demo. Gunakan akun demo di bawah atau daftar akun baru.',
+        error: 'Supabase belum terkonfigurasi. Lengkapi VITE_SUPABASE_URL dan VITE_SUPABASE_ANON_KEY di file .env.',
       };
     }
-    if (!found.is_active) {
+
+    const normalizedEmail = email.trim().toLowerCase();
+    const { data, error } = await supabase.auth.signInWithPassword({
+      email: normalizedEmail,
+      password,
+    });
+    if (error) return { ok: false, error: error.message };
+
+    // Verify account is active
+    const profileRes = await supabase
+      .from('profiles')
+      .select('*')
+      .eq('id', data.user.id)
+      .maybeSingle();
+
+    if (profileRes.data && !(profileRes.data as Profile).is_active) {
+      await supabase.auth.signOut();
       return {
         ok: false,
         error: 'Akun ini sedang dinonaktifkan oleh Admin. Hubungi pengelola sekolah.',
       };
     }
-    setCurrentUserId(found.id);
-    setActiveTab('ringkasan');
+
+    const resolvedRole: UserRole =
+      (profileRes.data as Profile | null)?.role ?? profileFromAuthUser(data.user).role;
+    setAuthUser(data.user);
+    setCurrentUserId(data.user.id);
+    await refreshSupabaseData(data.user);
+    setActiveTabState('ringkasan');
     setView('dashboard');
-    showToast(`Masuk sebagai ${found.full_name}.`);
+    navigateToPath(getDefaultPathForRole(resolvedRole), true);
+    showToast('Berhasil masuk ke dashboard.');
     return { ok: true };
   };
 
@@ -361,130 +556,115 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     class_name: string;
     role: UserRole;
   }): Promise<{ ok: boolean; error?: string }> => {
+    if (!supabase) {
+      return {
+        ok: false,
+        error: 'Supabase belum terkonfigurasi. Lengkapi VITE_SUPABASE_URL dan VITE_SUPABASE_ANON_KEY di file .env.',
+      };
+    }
+
     const normalizedEmail = input.email.trim().toLowerCase();
-    if (mode === 'supabase' && supabase) {
-      const { data, error } = await supabase.auth.signUp({
-        email: normalizedEmail,
-        password: input.password,
-        options: {
-          data: {
-            full_name: input.full_name.trim(),
-            class_name: input.class_name.trim(),
-            role: input.role,
-          },
+    const { data, error } = await supabase.auth.signUp({
+      email: normalizedEmail,
+      password: input.password,
+      options: {
+        data: {
+          full_name: input.full_name.trim(),
+          class_name: input.class_name.trim() || (input.role === 'siswa' ? 'XI IPA 1' : 'Staf Sekolah'),
+          role: input.role,
         },
-      });
-      if (error) return { ok: false, error: error.message };
-      if (data.user) {
-        setCurrentUserId(data.user.id);
-        await refreshSupabaseData();
-        setActiveTab('ringkasan');
-        setView('dashboard');
-      }
-      showToast('Akun berhasil dibuat.');
+      },
+    });
+    if (error) return { ok: false, error: error.message };
+
+    if (!data.session) {
+      showToast(
+        'Akun terdaftar. Cek email untuk konfirmasi atau matikan Confirm email di Supabase Auth.',
+        'info'
+      );
       return { ok: true };
     }
 
-    if (db.profiles.some((p) => p.email.toLowerCase() === normalizedEmail)) {
-      return { ok: false, error: 'Email tersebut sudah terdaftar.' };
+    if (data.user) {
+      setAuthUser(data.user);
+      setCurrentUserId(data.user.id);
+      await refreshSupabaseData(data.user);
+      setActiveTabState('ringkasan');
+      setView('dashboard');
+      navigateToPath(getDefaultPathForRole(input.role), true);
     }
-    const newProfile: Profile = {
-      id: uid(input.role === 'siswa' ? 'stu' : input.role === 'guru_bk' ? 'bk' : 'adm'),
-      full_name: input.full_name.trim(),
-      email: normalizedEmail,
-      role: input.role,
-      class_name: input.class_name.trim() || (input.role === 'siswa' ? 'XI IPA 1' : 'Staf Sekolah'),
-      is_active: true,
-      share_activity_consent: false,
-      created_at: new Date().toISOString(),
-    };
-    setDb((prev) => ({
-      ...prev,
-      profiles: [newProfile, ...prev.profiles],
-      activityLogs: [
-        {
-          id: uid('log'),
-          user_id: newProfile.id,
-          user_name: newProfile.full_name,
-          action: 'Mendaftar Akun Baru',
-          module: 'Autentikasi',
-          detail: `Akun baru (${newProfile.role}) dibuat untuk ${newProfile.email}.`,
-          created_at: new Date().toISOString(),
-        },
-        ...prev.activityLogs,
-      ],
-    }));
-    setCurrentUserId(newProfile.id);
-    setActiveTab('ringkasan');
-    setView('dashboard');
-    showToast('Akun baru dibuat dan aktif.');
+    showToast('Akun berhasil dibuat.');
+    return { ok: true };
+  };
+
+  const changePassword = async (
+    newPassword: string
+  ): Promise<{ ok: boolean; error?: string }> => {
+    if (!supabase) {
+      return { ok: false, error: 'Koneksi Supabase tidak tersedia.' };
+    }
+    if (newPassword.length < 6) {
+      return { ok: false, error: 'Kata sandi baru minimal 6 karakter.' };
+    }
+    const { error } = await supabase.auth.updateUser({ password: newPassword });
+    if (error) {
+      return { ok: false, error: error.message };
+    }
+    await appendLog('Mengubah Kata Sandi', 'Keamanan Akun', 'Pengguna memperbarui kata sandi akunnya sendiri.');
+    showToast('Kata sandi berhasil diperbarui.');
+    return { ok: true };
+  };
+
+  const adminResetUserPassword = async (
+    targetUserId: string,
+    newPassword: string
+  ): Promise<{ ok: boolean; error?: string }> => {
+    if (!supabase) {
+      return { ok: false, error: 'Koneksi Supabase tidak tersedia.' };
+    }
+    if (newPassword.length < 6) {
+      return { ok: false, error: 'Kata sandi baru minimal 6 karakter.' };
+    }
+    const { error } = await supabase.rpc('admin_reset_user_password', {
+      target_user_id: targetUserId,
+      new_password: newPassword,
+    });
+    if (error) {
+      return { ok: false, error: error.message };
+    }
+    const target = db.profiles.find((p) => p.id === targetUserId);
+    await appendLog(
+      'Mereset Kata Sandi Pengguna',
+      'Kelola Akun',
+      `Admin mereset kata sandi untuk ${target?.full_name ?? targetUserId}.`
+    );
+    showToast(`Kata sandi ${target?.full_name ?? 'pengguna'} berhasil diubah.`);
     return { ok: true };
   };
 
   const logout = async () => {
-    if (mode === 'supabase' && supabase) {
+    if (supabase) {
       await supabase.auth.signOut();
     }
+    setAuthUser(null);
     setCurrentUserId(null);
     setView('auth');
+    setActiveTabState('ringkasan');
+    navigateToPath('/login', true);
     showToast('Sesi keluar berhasil.', 'info');
-  };
-
-  const loginDemoByRole = (role: UserRole, targetTab = 'ringkasan') => {
-    const found = db.profiles.find((p) => p.role === role && p.is_active);
-    if (!found) {
-      showToast('Tidak ada akun aktif untuk peran tersebut.', 'error');
-      return;
-    }
-    setCurrentUserId(found.id);
-    setActiveTab(targetTab);
-    setView('dashboard');
-    showToast(`Beralih ke ${found.full_name}.`, 'info');
-  };
-
-  const loginDemoById = (profileId: string, targetTab = 'ringkasan') => {
-    const found = db.profiles.find((p) => p.id === profileId);
-    if (!found) return;
-    if (!found.is_active) {
-      showToast('Akun tersebut sedang dinonaktifkan.', 'error');
-      return;
-    }
-    setCurrentUserId(found.id);
-    setActiveTab(targetTab);
-    setView('dashboard');
-    showToast(`Beralih ke ${found.full_name}.`, 'info');
-  };
-
-  const openDashboardTab = (role: UserRole, tab = 'ringkasan') => {
-    if (currentUser && currentUser.role === role) {
-      setActiveTab(tab);
-      setView('dashboard');
-      return;
-    }
-    if (mode === 'demo') {
-      loginDemoByRole(role, tab);
-    } else {
-      setActiveTab(tab);
-      setView('auth');
-    }
-  };
-
-  const resetDemoData = () => {
-    const fresh = structuredClone(INITIAL_DEMO_DB);
-    setDb(fresh);
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(fresh));
-    showToast('Data demo dikembalikan ke kondisi awal.', 'info');
   };
 
   // Student Actions
   const toggleMaterialCompleted = async (materialId: string) => {
-    if (!currentUser) return;
+    if (!supabase || !currentUser) return;
     const existing = db.materialProgress.find(
       (mp) => mp.student_id === currentUser.id && mp.material_id === materialId
     );
     if (existing) {
-      if (mode === 'supabase' && supabase) {
-        await supabase.from('material_progress').delete().eq('id', existing.id);
+      const { error } = await supabase.from('material_progress').delete().eq('id', existing.id);
+      if (error) {
+        showToast(`Gagal membatalkan status materi: ${error.message}`, 'error');
+        return;
       }
       setDb((prev) => ({
         ...prev,
@@ -492,26 +672,21 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       }));
       showToast('Tanda selesai dibatalkan.', 'info');
     } else {
-      const record: MaterialProgress = {
-        id: uid('mp'),
-        student_id: currentUser.id,
-        material_id: materialId,
-        completed_at: new Date().toISOString(),
-      };
-      if (mode === 'supabase' && supabase) {
-        const { data } = await supabase
-          .from('material_progress')
-          .insert({ student_id: currentUser.id, material_id: materialId })
-          .select()
-          .single();
-        if (data) record.id = data.id;
+      const { data, error } = await supabase
+        .from('material_progress')
+        .insert({ student_id: currentUser.id, material_id: materialId })
+        .select()
+        .single();
+      if (error || !data) {
+        showToast(`Gagal menandai selesai: ${error?.message ?? 'Terjadi kesalahan.'}`, 'error');
+        return;
       }
       setDb((prev) => ({
         ...prev,
-        materialProgress: [record, ...prev.materialProgress],
+        materialProgress: [data as MaterialProgress, ...prev.materialProgress],
       }));
       const mat = db.materials.find((m) => m.id === materialId);
-      await appendLog('Menyelesaikan Materi', 'Kenali Diriku', mat?.title ?? materialId);
+      await appendLog('Menyelesaikan Materi', 'Katalog Materi', mat?.title ?? materialId);
       showToast('Materi ditandai selesai.');
     }
   };
@@ -522,40 +697,34 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     strength_notes: string;
     reflection_content: string;
   }) => {
-    if (!currentUser) return;
-    const record: StudentReflection = {
-      id: uid('ref'),
-      student_id: currentUser.id,
-      activity_id: input.activity_id,
-      interest_notes: input.interest_notes.trim(),
-      strength_notes: input.strength_notes.trim(),
-      reflection_content: input.reflection_content.trim(),
-      created_at: new Date().toISOString(),
-    };
-    if (mode === 'supabase' && supabase) {
-      const { data } = await supabase
-        .from('student_reflections')
-        .insert({
-          student_id: currentUser.id,
-          activity_id: input.activity_id,
-          interest_notes: record.interest_notes,
-          strength_notes: record.strength_notes,
-          reflection_content: record.reflection_content,
-        })
-        .select()
-        .single();
-      if (data) record.id = data.id;
+    if (!supabase || !currentUser) return;
+    const { data, error } = await supabase
+      .from('student_reflections')
+      .insert({
+        student_id: currentUser.id,
+        activity_id: input.activity_id,
+        interest_notes: input.interest_notes.trim(),
+        strength_notes: input.strength_notes.trim(),
+        reflection_content: input.reflection_content.trim(),
+      })
+      .select()
+      .single();
+
+    if (error || !data) {
+      showToast(`Gagal menyimpan refleksi: ${error?.message ?? 'Terjadi kesalahan.'}`, 'error');
+      return;
     }
+
     setDb((prev) => ({
       ...prev,
-      studentReflections: [record, ...prev.studentReflections],
+      studentReflections: [data as StudentReflection, ...prev.studentReflections],
     }));
     await appendLog(
       'Menyimpan Refleksi Diri',
       'Refleksi & Tindak Lanjut',
       `Siswa menyimpan catatan refleksi (${input.activity_id ? 'terkait tugas BK' : 'mandiri'}).`
     );
-    showToast('Refleksi tersimpan.');
+    showToast('Refleksi tersimpan ke database.');
   };
 
   const savePotentialMap = async (input: {
@@ -567,32 +736,53 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     top_strengths: string;
     top_interests: string;
   }) => {
-    if (!currentUser) return;
-    const existing = db.potentialMaps.find((pm) => pm.student_id === currentUser.id);
-    const updated: PotentialMap = {
-      id: existing?.id ?? uid('pm'),
-      student_id: currentUser.id,
-      ...input,
-      updated_at: new Date().toISOString(),
-    };
-    if (mode === 'supabase' && supabase) {
-      await supabase.from('potential_maps').upsert(
+    if (!supabase || !currentUser) {
+      showToast('Koneksi database tidak tersedia.', 'error');
+      return;
+    }
+
+    const now = new Date().toISOString();
+    const { data, error } = await supabase
+      .from('potential_maps')
+      .upsert(
         {
           student_id: currentUser.id,
-          ...input,
-          updated_at: updated.updated_at,
+          academic_score: input.academic_score,
+          social_score: input.social_score,
+          creative_score: input.creative_score,
+          leadership_score: input.leadership_score,
+          technical_score: input.technical_score,
+          top_strengths: input.top_strengths.trim(),
+          top_interests: input.top_interests.trim(),
+          updated_at: now,
         },
         { onConflict: 'student_id' }
-      );
+      )
+      .select()
+      .single();
+
+    if (error || !data) {
+      showToast(`Gagal menyimpan Peta Potensi: ${error?.message ?? 'Terjadi kesalahan.'}`, 'error');
+      return;
     }
-    setDb((prev) => ({
-      ...prev,
-      potentialMaps: existing
-        ? prev.potentialMaps.map((pm) => (pm.student_id === currentUser.id ? updated : pm))
-        : [updated, ...prev.potentialMaps],
-    }));
-    await appendLog('Memperbarui Peta Potensi', 'Peta Potensi', `Pemetaan 5 dimensi diperbarui.`);
-    showToast('Peta potensi diperbarui.');
+
+    const saved = data as PotentialMap;
+    setDb((prev) => {
+      const exists = prev.potentialMaps.some((pm) => pm.student_id === currentUser.id);
+      return {
+        ...prev,
+        potentialMaps: exists
+          ? prev.potentialMaps.map((pm) => (pm.student_id === currentUser.id ? saved : pm))
+          : [saved, ...prev.potentialMaps],
+      };
+    });
+
+    await appendLog(
+      'Menyimpan Peta Potensi',
+      'Peta Potensi',
+      `Hasil kuesioner 5 dimensi disimpan (Akademik ${saved.academic_score}, Sosial ${saved.social_score}, Kreatif ${saved.creative_score}, Kepemimpinan ${saved.leadership_score}, Teknis ${saved.technical_score}).`
+    );
+    showToast('Peta potensi berhasil disimpan ke database.');
   };
 
   const createFuturePlan = async (input: {
@@ -601,37 +791,32 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     target_goal: string;
     action_steps: ActionStep[];
   }) => {
-    if (!currentUser) return;
+    if (!supabase || !currentUser) return;
     const doneCount = input.action_steps.filter((s) => s.done).length;
     const progress =
       input.action_steps.length > 0
         ? Math.round((doneCount / input.action_steps.length) * 100)
         : 0;
-    const record: FuturePlan = {
-      id: uid('plan'),
-      student_id: currentUser.id,
-      title: input.title.trim(),
-      timeframe: input.timeframe,
-      target_goal: input.target_goal.trim(),
-      action_steps: input.action_steps,
-      progress,
-      created_at: new Date().toISOString(),
-    };
-    if (mode === 'supabase' && supabase) {
-      const { data } = await supabase
-        .from('future_plans')
-        .insert({
-          student_id: currentUser.id,
-          title: record.title,
-          timeframe: record.timeframe,
-          target_goal: record.target_goal,
-          action_steps: record.action_steps,
-          progress: record.progress,
-        })
-        .select()
-        .single();
-      if (data) record.id = data.id;
+
+    const { data, error } = await supabase
+      .from('future_plans')
+      .insert({
+        student_id: currentUser.id,
+        title: input.title.trim(),
+        timeframe: input.timeframe,
+        target_goal: input.target_goal.trim(),
+        action_steps: input.action_steps,
+        progress,
+      })
+      .select()
+      .single();
+
+    if (error || !data) {
+      showToast(`Gagal menyimpan rencana: ${error?.message ?? 'Terjadi kesalahan.'}`, 'error');
+      return;
     }
+
+    const record = data as FuturePlan;
     setDb((prev) => ({
       ...prev,
       futurePlans: [record, ...prev.futurePlans],
@@ -641,6 +826,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   };
 
   const togglePlanStep = async (planId: string, stepId: string) => {
+    if (!supabase) return;
     const plan = db.futurePlans.find((p) => p.id === planId);
     if (!plan) return;
     const nextSteps = plan.action_steps.map((s) =>
@@ -650,12 +836,16 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     const nextProgress =
       nextSteps.length > 0 ? Math.round((doneCount / nextSteps.length) * 100) : 0;
 
-    if (mode === 'supabase' && supabase) {
-      await supabase
-        .from('future_plans')
-        .update({ action_steps: nextSteps, progress: nextProgress })
-        .eq('id', planId);
+    const { error } = await supabase
+      .from('future_plans')
+      .update({ action_steps: nextSteps, progress: nextProgress })
+      .eq('id', planId);
+
+    if (error) {
+      showToast(`Gagal memperbarui langkah aksi: ${error.message}`, 'error');
+      return;
     }
+
     setDb((prev) => ({
       ...prev,
       futurePlans: prev.futurePlans.map((p) =>
@@ -665,8 +855,11 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   };
 
   const deleteFuturePlan = async (planId: string) => {
-    if (mode === 'supabase' && supabase) {
-      await supabase.from('future_plans').delete().eq('id', planId);
+    if (!supabase) return;
+    const { error } = await supabase.from('future_plans').delete().eq('id', planId);
+    if (error) {
+      showToast(`Gagal menghapus rencana: ${error.message}`, 'error');
+      return;
     }
     setDb((prev) => ({
       ...prev,
@@ -676,13 +869,17 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   };
 
   const updatePrivacyConsent = async (consent: boolean) => {
-    if (!currentUser) return;
-    if (mode === 'supabase' && supabase) {
-      await supabase
-        .from('profiles')
-        .update({ share_activity_consent: consent })
-        .eq('id', currentUser.id);
+    if (!supabase || !currentUser) return;
+    const { error } = await supabase
+      .from('profiles')
+      .update({ share_activity_consent: consent })
+      .eq('id', currentUser.id);
+
+    if (error) {
+      showToast(`Gagal memperbarui privasi: ${error.message}`, 'error');
+      return;
     }
+
     setDb((prev) => ({
       ...prev,
       profiles: prev.profiles.map((p) =>
@@ -708,9 +905,12 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     input: Omit<Material, 'id' | 'created_at' | 'author_id'>,
     editId?: string
   ) => {
+    if (!supabase) return;
     if (editId) {
-      if (mode === 'supabase' && supabase) {
-        await supabase.from('materials').update(input).eq('id', editId);
+      const { error } = await supabase.from('materials').update(input).eq('id', editId);
+      if (error) {
+        showToast(`Gagal memperbarui materi: ${error.message}`, 'error');
+        return;
       }
       setDb((prev) => ({
         ...prev,
@@ -721,20 +921,18 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       return;
     }
 
-    const record: Material = {
-      id: uid('mat'),
-      ...input,
-      author_id: currentUser?.id ?? null,
-      created_at: new Date().toISOString(),
-    };
-    if (mode === 'supabase' && supabase) {
-      const { data } = await supabase
-        .from('materials')
-        .insert({ ...input, author_id: currentUser?.id ?? null })
-        .select()
-        .single();
-      if (data) record.id = data.id;
+    const { data, error } = await supabase
+      .from('materials')
+      .insert({ ...input, author_id: currentUser?.id ?? null })
+      .select()
+      .single();
+
+    if (error || !data) {
+      showToast(`Gagal menyimpan materi: ${error?.message ?? 'Terjadi kesalahan.'}`, 'error');
+      return;
     }
+
+    const record = data as Material;
     setDb((prev) => ({
       ...prev,
       materials: [record, ...prev.materials],
@@ -744,8 +942,11 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   };
 
   const updateMaterialStatus = async (id: string, status: MaterialStatus) => {
-    if (mode === 'supabase' && supabase) {
-      await supabase.from('materials').update({ status }).eq('id', id);
+    if (!supabase) return;
+    const { error } = await supabase.from('materials').update({ status }).eq('id', id);
+    if (error) {
+      showToast(`Gagal mengubah status materi: ${error.message}`, 'error');
+      return;
     }
     const target = db.materials.find((m) => m.id === id);
     setDb((prev) => ({
@@ -757,9 +958,12 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   };
 
   const deleteMaterial = async (id: string) => {
+    if (!supabase) return;
     const target = db.materials.find((m) => m.id === id);
-    if (mode === 'supabase' && supabase) {
-      await supabase.from('materials').delete().eq('id', id);
+    const { error } = await supabase.from('materials').delete().eq('id', id);
+    if (error) {
+      showToast(`Gagal menghapus materi: ${error.message}`, 'error');
+      return;
     }
     setDb((prev) => ({
       ...prev,
@@ -773,9 +977,15 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     input: { title: string; prompt: string; due_date: string; is_active: boolean },
     editId?: string
   ) => {
+    if (!supabase) return;
     if (editId) {
-      if (mode === 'supabase' && supabase) {
-        await supabase.from('reflection_activities').update(input).eq('id', editId);
+      const { error } = await supabase
+        .from('reflection_activities')
+        .update(input)
+        .eq('id', editId);
+      if (error) {
+        showToast(`Gagal memperbarui kegiatan: ${error.message}`, 'error');
+        return;
       }
       setDb((prev) => ({
         ...prev,
@@ -787,20 +997,19 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       showToast('Kegiatan refleksi diperbarui.');
       return;
     }
-    const record: ReflectionActivity = {
-      id: uid('act'),
-      ...input,
-      created_by: currentUser?.id ?? null,
-      created_at: new Date().toISOString(),
-    };
-    if (mode === 'supabase' && supabase) {
-      const { data } = await supabase
-        .from('reflection_activities')
-        .insert({ ...input, created_by: currentUser?.id ?? null })
-        .select()
-        .single();
-      if (data) record.id = data.id;
+
+    const { data, error } = await supabase
+      .from('reflection_activities')
+      .insert({ ...input, created_by: currentUser?.id ?? null })
+      .select()
+      .single();
+
+    if (error || !data) {
+      showToast(`Gagal membuat kegiatan: ${error?.message ?? 'Terjadi kesalahan.'}`, 'error');
+      return;
     }
+
+    const record = data as ReflectionActivity;
     setDb((prev) => ({
       ...prev,
       reflectionActivities: [record, ...prev.reflectionActivities],
@@ -810,8 +1019,11 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   };
 
   const deleteReflectionActivity = async (id: string) => {
-    if (mode === 'supabase' && supabase) {
-      await supabase.from('reflection_activities').delete().eq('id', id);
+    if (!supabase) return;
+    const { error } = await supabase.from('reflection_activities').delete().eq('id', id);
+    if (error) {
+      showToast(`Gagal menghapus kegiatan: ${error.message}`, 'error');
+      return;
     }
     setDb((prev) => ({
       ...prev,
@@ -826,32 +1038,27 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     recommendation: string;
     status: FollowupStatus;
   }) => {
-    const record: CounselorFollowup = {
-      id: uid('fu'),
-      student_id: input.student_id,
-      counselor_id: currentUser?.id ?? null,
-      guidance_note: input.guidance_note.trim(),
-      recommendation: input.recommendation.trim(),
-      status: input.status,
-      updated_at: new Date().toISOString(),
-    };
-    if (mode === 'supabase' && supabase) {
-      const { data } = await supabase
-        .from('counselor_followups')
-        .insert({
-          student_id: record.student_id,
-          counselor_id: record.counselor_id,
-          guidance_note: record.guidance_note,
-          recommendation: record.recommendation,
-          status: record.status,
-        })
-        .select()
-        .single();
-      if (data) record.id = data.id;
+    if (!supabase) return;
+    const { data, error } = await supabase
+      .from('counselor_followups')
+      .insert({
+        student_id: input.student_id,
+        counselor_id: currentUser?.id ?? null,
+        guidance_note: input.guidance_note.trim(),
+        recommendation: input.recommendation.trim(),
+        status: input.status,
+      })
+      .select()
+      .single();
+
+    if (error || !data) {
+      showToast(`Gagal mengirim arahan: ${error?.message ?? 'Terjadi kesalahan.'}`, 'error');
+      return;
     }
+
     setDb((prev) => ({
       ...prev,
-      counselorFollowups: [record, ...prev.counselorFollowups],
+      counselorFollowups: [data as CounselorFollowup, ...prev.counselorFollowups],
     }));
     const student = db.profiles.find((p) => p.id === input.student_id);
     await appendLog(
@@ -866,9 +1073,12 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     input: Omit<ConsultationInfo, 'id'>,
     editId?: string
   ) => {
+    if (!supabase) return;
     if (editId) {
-      if (mode === 'supabase' && supabase) {
-        await supabase.from('consultation_info').update(input).eq('id', editId);
+      const { error } = await supabase.from('consultation_info').update(input).eq('id', editId);
+      if (error) {
+        showToast(`Gagal memperbarui jadwal: ${error.message}`, 'error');
+        return;
       }
       setDb((prev) => ({
         ...prev,
@@ -880,22 +1090,32 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       showToast('Jadwal konsultasi diperbarui.');
       return;
     }
-    const record: ConsultationInfo = { id: uid('ci'), ...input };
-    if (mode === 'supabase' && supabase) {
-      const { data } = await supabase.from('consultation_info').insert(input).select().single();
-      if (data) record.id = data.id;
+
+    const { data, error } = await supabase
+      .from('consultation_info')
+      .insert(input)
+      .select()
+      .single();
+
+    if (error || !data) {
+      showToast(`Gagal menambahkan jadwal: ${error?.message ?? 'Terjadi kesalahan.'}`, 'error');
+      return;
     }
+
     setDb((prev) => ({
       ...prev,
-      consultationInfo: [...prev.consultationInfo, record],
+      consultationInfo: [...prev.consultationInfo, data as ConsultationInfo],
     }));
     await appendLog('Menambahkan Info Konsultasi', 'Konsultasi BK', input.counselor_name);
     showToast('Informasi konsultasi ditambahkan.');
   };
 
   const deleteConsultationInfo = async (id: string) => {
-    if (mode === 'supabase' && supabase) {
-      await supabase.from('consultation_info').delete().eq('id', id);
+    if (!supabase) return;
+    const { error } = await supabase.from('consultation_info').delete().eq('id', id);
+    if (error) {
+      showToast(`Gagal menghapus jadwal: ${error.message}`, 'error');
+      return;
     }
     setDb((prev) => ({
       ...prev,
@@ -915,9 +1135,12 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     },
     editId?: string
   ) => {
+    if (!supabase) return;
     if (editId) {
-      if (mode === 'supabase' && supabase) {
-        await supabase.from('profiles').update(input).eq('id', editId);
+      const { error } = await supabase.from('profiles').update(input).eq('id', editId);
+      if (error) {
+        showToast(`Gagal memperbarui akun: ${error.message}`, 'error');
+        return;
       }
       setDb((prev) => ({
         ...prev,
@@ -927,26 +1150,25 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       showToast('Data akun diperbarui.');
       return;
     }
-    const record: Profile = {
-      id: uid(input.role === 'siswa' ? 'stu' : input.role === 'guru_bk' ? 'bk' : 'adm'),
-      ...input,
-      share_activity_consent: false,
-      created_at: new Date().toISOString(),
-    };
-    setDb((prev) => ({
-      ...prev,
-      profiles: [record, ...prev.profiles],
-    }));
-    await appendLog('Menambahkan Akun', 'Kelola Akun', `${record.full_name} (${record.role})`);
-    showToast('Akun baru ditambahkan.');
+
+    showToast(
+      'Akun baru dibuat melalui halaman Daftar Akun Baru atau Supabase Authentication → Users agar memiliki kredensial login.',
+      'info'
+    );
   };
 
   const toggleUserActive = async (id: string) => {
+    if (!supabase) return;
     const target = db.profiles.find((p) => p.id === id);
     if (!target) return;
     const nextActive = !target.is_active;
-    if (mode === 'supabase' && supabase) {
-      await supabase.from('profiles').update({ is_active: nextActive }).eq('id', id);
+    const { error } = await supabase
+      .from('profiles')
+      .update({ is_active: nextActive })
+      .eq('id', id);
+    if (error) {
+      showToast(`Gagal mengubah status akun: ${error.message}`, 'error');
+      return;
     }
     setDb((prev) => ({
       ...prev,
@@ -961,9 +1183,14 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   };
 
   const updateSiteSettings = async (input: Omit<SiteSettings, 'id'>) => {
+    if (!supabase) return;
     const next: SiteSettings = { id: 1, ...input };
-    if (mode === 'supabase' && supabase) {
-      await supabase.from('site_settings').upsert(next, { onConflict: 'id' });
+    const { error } = await supabase
+      .from('site_settings')
+      .upsert(next, { onConflict: 'id' });
+    if (error) {
+      showToast(`Gagal menyimpan pengaturan: ${error.message}`, 'error');
+      return;
     }
     setDb((prev) => ({
       ...prev,
@@ -981,9 +1208,12 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     input: { title: string; content: string; is_active: boolean },
     editId?: string
   ) => {
+    if (!supabase) return;
     if (editId) {
-      if (mode === 'supabase' && supabase) {
-        await supabase.from('announcements').update(input).eq('id', editId);
+      const { error } = await supabase.from('announcements').update(input).eq('id', editId);
+      if (error) {
+        showToast(`Gagal memperbarui pengumuman: ${error.message}`, 'error');
+        return;
       }
       setDb((prev) => ({
         ...prev,
@@ -993,20 +1223,19 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       showToast('Pengumuman diperbarui.');
       return;
     }
-    const record: Announcement = {
-      id: uid('ann'),
-      ...input,
-      created_by: currentUser?.id ?? null,
-      created_at: new Date().toISOString(),
-    };
-    if (mode === 'supabase' && supabase) {
-      const { data } = await supabase
-        .from('announcements')
-        .insert({ ...input, created_by: currentUser?.id ?? null })
-        .select()
-        .single();
-      if (data) record.id = data.id;
+
+    const { data, error } = await supabase
+      .from('announcements')
+      .insert({ ...input, created_by: currentUser?.id ?? null })
+      .select()
+      .single();
+
+    if (error || !data) {
+      showToast(`Gagal menerbitkan pengumuman: ${error?.message ?? 'Terjadi kesalahan.'}`, 'error');
+      return;
     }
+
+    const record = data as Announcement;
     setDb((prev) => ({
       ...prev,
       announcements: [record, ...prev.announcements],
@@ -1016,8 +1245,11 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   };
 
   const deleteAnnouncement = async (id: string) => {
-    if (mode === 'supabase' && supabase) {
-      await supabase.from('announcements').delete().eq('id', id);
+    if (!supabase) return;
+    const { error } = await supabase.from('announcements').delete().eq('id', id);
+    if (error) {
+      showToast(`Gagal menghapus pengumuman: ${error.message}`, 'error');
+      return;
     }
     setDb((prev) => ({
       ...prev,
@@ -1027,7 +1259,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   };
 
   const value: AppContextValue = {
-    mode,
+    isConfigured: isSupabaseConfigured,
     loading,
     view,
     setView,
@@ -1041,6 +1273,9 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     materialProgress: db.materialProgress,
     reflectionActivities: db.reflectionActivities,
     studentReflections: db.studentReflections,
+    potentialQuestions: db.potentialQuestions,
+    potentialQuestionsError,
+    reloadPotentialQuestions,
     potentialMaps: db.potentialMaps,
     futurePlans: db.futurePlans,
     counselorFollowups: db.counselorFollowups,
@@ -1050,11 +1285,9 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     activityLogs: db.activityLogs,
     loginWithEmail,
     registerWithEmail,
+    changePassword,
+    adminResetUserPassword,
     logout,
-    loginDemoByRole,
-    loginDemoById,
-    openDashboardTab,
-    resetDemoData,
     toggleMaterialCompleted,
     saveReflection,
     savePotentialMap,

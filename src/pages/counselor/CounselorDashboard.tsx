@@ -366,7 +366,7 @@ export const CounselorDashboard: React.FC = () => {
                 Kelola materi pengenalan diri
               </h2>
               <p className="mt-0.5 text-xs text-ink-muted">
-                Materi berstatus Published otomatis muncul di menu Kenali Diriku siswa.
+                Materi berstatus Published otomatis muncul di menu Materi siswa.
               </p>
             </div>
             <button

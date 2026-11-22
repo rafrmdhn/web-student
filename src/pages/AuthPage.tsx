@@ -1,17 +1,10 @@
 import React, { useState } from 'react';
-import { Compass, Database, Lock, ShieldCheck } from 'lucide-react';
+import { AlertTriangle, Compass } from 'lucide-react';
 import { useApp } from '../context/AppContext';
 import type { UserRole } from '../types';
 
 export const AuthPage: React.FC = () => {
-  const {
-    mode,
-    siteSettings,
-    profiles,
-    loginWithEmail,
-    registerWithEmail,
-    loginDemoById,
-  } = useApp();
+  const { isConfigured, siteSettings, loginWithEmail, registerWithEmail } = useApp();
 
   const [tab, setTab] = useState<'login' | 'register'>('login');
   const [fullName, setFullName] = useState('');
@@ -50,11 +43,8 @@ export const AuthPage: React.FC = () => {
   };
 
   return (
-    <div className="flex min-h-screen items-center bg-canvas px-4 py-10 sm:px-6 lg:px-8">
-      <div className="mx-auto w-full max-w-5xl">
-        <div className="grid gap-8 lg:grid-cols-12">
-          {/* Left: Form */}
-          <div className="rounded-2xl border border-line bg-paper p-6 sm:p-8 lg:col-span-7">
+    <div className="flex min-h-screen items-center justify-center bg-canvas px-4 py-10 sm:px-6">
+      <div className="w-full max-w-md rounded-2xl border border-line bg-paper p-6 sm:p-8">
             <div className="flex items-center gap-2.5">
               <span className="flex h-9 w-9 items-center justify-center rounded-lg bg-accent text-white">
                 <Compass className="h-5 w-5" />
@@ -66,6 +56,20 @@ export const AuthPage: React.FC = () => {
                 <p className="text-xs text-ink-muted">{siteSettings.tagline}</p>
               </div>
             </div>
+
+            {!isConfigured && (
+              <div className="mt-5 flex items-start gap-2.5 rounded-xl border border-amber-300 bg-amber-50 p-4 text-xs leading-relaxed text-amber-900">
+                <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-amber-700" />
+                <div>
+                  <p className="font-semibold">Supabase belum terkonfigurasi</p>
+                  <p className="mt-1">
+                    Isi <code>VITE_SUPABASE_URL</code> dan <code>VITE_SUPABASE_ANON_KEY</code> pada
+                    file <code>.env</code>, lalu jalankan ulang <code>npm run dev</code> agar login
+                    dan penyimpanan database aktif.
+                  </p>
+                </div>
+              </div>
+            )}
 
             <div className="mt-6 flex rounded-lg border border-line bg-canvas p-1">
               <button
@@ -138,7 +142,7 @@ export const AuthPage: React.FC = () => {
                         type="text"
                         value={className}
                         onChange={(e) => setClassName(e.target.value)}
-                        placeholder="XI IPA 1"
+                        placeholder="XI IPA 1 / Tim BK"
                         className="mt-1.5 w-full rounded-lg border border-line bg-canvas px-3.5 py-2.5 text-sm text-ink"
                       />
                     </div>
@@ -171,7 +175,7 @@ export const AuthPage: React.FC = () => {
                   required
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
-                  placeholder={mode === 'demo' ? 'Minimal 6 karakter (bebas di Mode Demo)' : '••••••••'}
+                  placeholder="Minimal 6 karakter"
                   className="mt-1.5 w-full rounded-lg border border-line bg-canvas px-3.5 py-2.5 text-sm text-ink"
                 />
               </div>
@@ -184,8 +188,8 @@ export const AuthPage: React.FC = () => {
 
               <button
                 type="submit"
-                disabled={submitting}
-                className="w-full rounded-lg bg-accent px-4 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-accent-hover disabled:opacity-60"
+                disabled={submitting || !isConfigured}
+                className="w-full rounded-lg bg-accent px-4 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-accent-hover disabled:cursor-not-allowed disabled:opacity-60"
               >
                 {submitting
                   ? 'Memproses...'
@@ -193,70 +197,13 @@ export const AuthPage: React.FC = () => {
                     ? 'Masuk ke Dashboard'
                     : 'Buat Akun'}
               </button>
-            </form>
-          </div>
 
-          {/* Right: Quick Demo Login / Supabase Mode Info */}
-          <div className="space-y-4 lg:col-span-5">
-            <div className="rounded-2xl border border-line bg-paper p-6">
-              <div className="flex items-center gap-2 text-sm font-semibold text-ink">
-                <Database className="h-4 w-4 text-accent" />
-                <span>
-                  {mode === 'supabase' ? 'Terhubung ke Supabase' : 'Masuk Cepat (Mode Demo Lokal)'}
-                </span>
-              </div>
-              <p className="mt-2 text-xs leading-relaxed text-ink-muted">
-                {mode === 'supabase'
-                  ? 'Autentikasi dan data tersimpan langsung di proyek Supabase Anda.'
-                  : 'File .env belum diisi, sehingga aplikasi berjalan otomatis dengan data demo lokal. Pilih salah satu akun di bawah untuk menguji alur lintas dashboard.'}
-              </p>
-
-              {mode === 'demo' && (
-                <div className="mt-4 space-y-2">
-                  {profiles.map((prof) => (
-                    <button
-                      key={prof.id}
-                      type="button"
-                      onClick={() => loginDemoById(prof.id)}
-                      className="flex w-full items-center justify-between rounded-xl border border-line bg-canvas px-3.5 py-3 text-left transition-colors hover:border-accent/50 hover:bg-accent-soft/40"
-                    >
-                      <div>
-                        <p className="text-sm font-semibold text-ink">{prof.full_name}</p>
-                        <p className="text-xs text-ink-muted">
-                          {prof.role === 'siswa'
-                            ? `Siswa (${prof.class_name}) — ${
-                                prof.share_activity_consent ? 'Berbagi ke BK aktif' : 'Privat'
-                              }`
-                            : prof.role === 'guru_bk'
-                              ? 'Guru BK'
-                              : 'Admin Sistem'}
-                        </p>
-                      </div>
-                      <span className="rounded-md bg-paper px-2.5 py-1 text-xs font-medium text-accent">
-                        Masuk
-                      </span>
-                    </button>
-                  ))}
-                </div>
+              {tab === 'login' && (
+                <p className="text-center text-xs text-ink-muted">
+                  Lupa kata sandi? Hubungi Admin sekolah untuk melakukan reset kata sandi akun Anda.
+                </p>
               )}
-            </div>
-
-            <div className="rounded-2xl border border-line bg-subtle p-5 text-xs leading-relaxed text-ink-muted">
-              <p className="flex items-center gap-2 font-semibold text-ink">
-                <ShieldCheck className="h-4 w-4 text-accent" />
-                <span>Jaminan Privasi Siswa</span>
-              </p>
-              <p className="mt-1.5">
-                Siswa memegang kendali penuh atas izin berbagi refleksi, peta potensi, dan rencana
-                masa depan kepada Guru BK.
-              </p>
-              <p className="mt-2 flex items-center gap-1.5 text-ink">
-                <Lock className="h-3.5 w-3.5 text-accent" />
-                <span>Siap pakai untuk PostgreSQL Row Level Security di Supabase.</span>
-              </p>
-            </div>
-          </div>
-        </div>
+            </form>
       </div>
     </div>
   );

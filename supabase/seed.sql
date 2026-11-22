@@ -88,3 +88,34 @@ values
     current_date + interval '14 days',
     true
   );
+
+
+-- 25 Pertanyaan Kuesioner Peta Potensi (5 dimensi x 5 pertanyaan)
+insert into public.potential_questions (question_number, dimension, question_text, is_active)
+values
+  (1, 'akademik', 'Saya senang membaca atau mencari penjelasan tambahan saat menemukan konsep pelajaran yang belum saya pahami.', true),
+  (2, 'akademik', 'Saya mampu merangkum materi pelajaran menjadi catatan yang runtut dan mudah dipelajari kembali.', true),
+  (3, 'akademik', 'Saya menikmati kegiatan menganalisis data, grafik, atau soal yang membutuhkan penalaran logis.', true),
+  (4, 'akademik', 'Saya biasanya menyiapkan jadwal belajar atau target tugas jauh sebelum tenggat waktu tiba.', true),
+  (5, 'akademik', 'Saya tertarik mendalami satu topik pelajaran hingga benar-benar mengerti alasan di balik setiap langkahnya.', true),
+  (6, 'sosial', 'Saya mudah menangkap perasaan teman dan berusaha mendengarkan dengan penuh perhatian saat mereka bercerita.', true),
+  (7, 'sosial', 'Saya merasa nyaman berdiskusi dan bertukar pendapat dengan teman baru maupun kelompok yang beragam.', true),
+  (8, 'sosial', 'Ketika terjadi perbedaan pendapat di kelompok, saya berusaha mencairkan suasana dan mencari titik temu.', true),
+  (9, 'sosial', 'Saya senang membantu menjelaskan pelajaran atau memberi dukungan kepada teman yang sedang kesulitan.', true),
+  (10, 'sosial', 'Saya merasa berenergi ketika terlibat dalam kegiatan kolaboratif, bakti sosial, atau kepanitiaan bersama.', true),
+  (11, 'kreatif', 'Saya sering memunculkan ide cara penyampaian tugas yang berbeda dari kebiasaan teman-teman lain.', true),
+  (12, 'kreatif', 'Saya menikmati kegiatan merancang visual, menulis cerita, membuat musik, video, atau karya seni lainnya.', true),
+  (13, 'kreatif', 'Saat menghadapi masalah yang buntu, saya suka mencoba sudut pandang baru yang belum terpikirkan sebelumnya.', true),
+  (14, 'kreatif', 'Saya peka terhadap keindahan tata letak, warna, ritme, atau gaya bahasa dalam suatu karya.', true),
+  (15, 'kreatif', 'Saya merasa tertantang ketika diberi tugas terbuka yang membebaskan saya menentukan bentuk karyanya sendiri.', true),
+  (16, 'kepemimpinan', 'Saya berani mengambil inisiatif membagi tugas agar kerja kelompok berjalan teratur dan selesai tepat waktu.', true),
+  (17, 'kepemimpinan', 'Saya percaya diri menyampaikan pendapat atau mempresentasikan hasil diskusi kelompok di depan kelas.', true),
+  (18, 'kepemimpinan', 'Ketika kelompok menghadapi hambatan, saya berusaha tetap tenang dan mengajak anggota mencari keputusan bersama.', true),
+  (19, 'kepemimpinan', 'Saya tertarik terlibat dalam kepengurusan organisasi sekolah, ekstrakurikuler, atau menjadi koordinator acara.', true),
+  (20, 'kepemimpinan', 'Saya siap bertanggung jawab atas hasil kerja tim dan memastikan setiap anggota merasa dilibatkan.', true),
+  (21, 'teknis', 'Saya cepat memahami cara kerja aplikasi baru, perangkat digital, atau alat praktik di laboratorium dan bengkel.', true),
+  (22, 'teknis', 'Saya menikmati kegiatan merakit, memperbaiki, atau menguji coba cara kerja suatu sistem secara langsung.', true),
+  (23, 'teknis', 'Saya teliti mengikuti langkah prosedural dan mengecek ulang detail teknis agar hasil praktik bebas kesalahan.', true),
+  (24, 'teknis', 'Saya tertarik mempelajari keterampilan terapan seperti pemrograman, desain teknis, elektronika, atau pengolahan data.', true),
+  (25, 'teknis', 'Ketika perangkat atau alat mengalami kendala, saya cenderung mencoba menelusuri sumber masalahnya secara bertahap.', true)
+on conflict (question_number) do nothing;

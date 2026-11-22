@@ -57,6 +57,21 @@ export interface StudentReflection {
   created_at: string;
 }
 
+export type PotentialDimensionId =
+  | 'akademik'
+  | 'sosial'
+  | 'kreatif'
+  | 'kepemimpinan'
+  | 'teknis';
+
+export interface PotentialQuestion {
+  id: string;
+  question_number: number;
+  dimension: PotentialDimensionId;
+  question_text: string;
+  is_active: boolean;
+}
+
 export interface PotentialMap {
   id: string;
   student_id: string;

@@ -54,6 +54,7 @@ export const AdminDashboard: React.FC = () => {
     activityLogs,
     saveUserAccount,
     toggleUserActive,
+    adminResetUserPassword,
     updateMaterialStatus,
     deleteMaterial,
     updateSiteSettings,
@@ -82,6 +83,13 @@ export const AdminDashboard: React.FC = () => {
     setSAccent(siteSettings.accent_color);
     setSShowBanner(siteSettings.show_announcement_banner);
   }, [siteSettings]);
+
+  // Modal: Reset Password (Admin)
+  const [resetTarget, setResetTarget] = useState<Profile | null>(null);
+  const [resetPasswordVal, setResetPasswordVal] = useState('');
+  const [resetConfirmVal, setResetConfirmVal] = useState('');
+  const [resetError, setResetError] = useState('');
+  const [resetting, setResetting] = useState(false);
 
   // Modal: Announcement
   const [annModalOpen, setAnnModalOpen] = useState(false);
@@ -115,6 +123,38 @@ export const AdminDashboard: React.FC = () => {
     setUClass(p.class_name);
     setUActive(p.is_active);
     setUserModalOpen(true);
+  };
+
+  const openResetPasswordModal = (p: Profile) => {
+    setResetTarget(p);
+    setResetPasswordVal('');
+    setResetConfirmVal('');
+    setResetError('');
+  };
+
+  const handleAdminResetPassword = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!resetTarget) return;
+    setResetError('');
+    if (resetPasswordVal.length < 6) {
+      setResetError('Kata sandi baru minimal 6 karakter.');
+      return;
+    }
+    if (resetPasswordVal !== resetConfirmVal) {
+      setResetError('Konfirmasi kata sandi tidak cocok.');
+      return;
+    }
+    setResetting(true);
+    try {
+      const res = await adminResetUserPassword(resetTarget.id, resetPasswordVal);
+      if (!res.ok) {
+        setResetError(res.error ?? 'Gagal mereset kata sandi.');
+        return;
+      }
+      setResetTarget(null);
+    } finally {
+      setResetting(false);
+    }
   };
 
   const openCreateAnnouncement = () => {
@@ -235,7 +275,7 @@ export const AdminDashboard: React.FC = () => {
                 {[
                   'Autentikasi & Hak Akses Peran',
                   'Kontrol Privasi Siswa (Row Level Security)',
-                  'Katalog Materi Kenali Diriku',
+                  'Katalog Materi',
                   'Visualisasi Radar Peta Potensi',
                   'Pengumuman & Pengaturan Tampilan Live',
                 ].map((mod) => (
@@ -347,13 +387,20 @@ export const AdminDashboard: React.FC = () => {
                         </span>
                       </td>
                       <td className="py-3 text-right">
-                        <div className="inline-flex items-center gap-2">
+                        <div className="inline-flex flex-wrap items-center justify-end gap-2">
                           <button
                             type="button"
                             onClick={() => openEditUser(p)}
                             className="rounded-md border border-line px-2.5 py-1 font-medium text-ink hover:bg-subtle"
                           >
                             Edit
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => openResetPasswordModal(p)}
+                            className="rounded-md border border-accent/40 bg-accent-soft px-2.5 py-1 font-medium text-accent-ink hover:bg-accent/15"
+                          >
+                            Reset Password
                           </button>
                           <button
                             type="button"
@@ -667,6 +714,74 @@ export const AdminDashboard: React.FC = () => {
               className="rounded-lg bg-accent px-4 py-2 text-sm font-semibold text-white hover:bg-accent-hover"
             >
               {editUserId ? 'Simpan perubahan' : 'Tambah akun'}
+            </button>
+          </div>
+        </form>
+      </Modal>
+
+      {/* MODAL: RESET PASSWORD PENGGUNA (ADMIN) */}
+      <Modal
+        open={Boolean(resetTarget)}
+        onClose={() => setResetTarget(null)}
+        title="Reset kata sandi pengguna"
+        description={
+          resetTarget
+            ? `Tetapkan kata sandi baru untuk ${resetTarget.full_name} (${resetTarget.email}).`
+            : undefined
+        }
+      >
+        <form onSubmit={handleAdminResetPassword} className="space-y-4">
+          <div>
+            <label className="block text-xs font-medium text-ink" htmlFor="adm-reset-pass">
+              Kata sandi baru
+            </label>
+            <input
+              id="adm-reset-pass"
+              type="password"
+              required
+              minLength={6}
+              value={resetPasswordVal}
+              onChange={(e) => setResetPasswordVal(e.target.value)}
+              placeholder="Minimal 6 karakter"
+              className="mt-1.5 w-full rounded-lg border border-line bg-canvas px-3 py-2 text-sm text-ink"
+            />
+          </div>
+          <div>
+            <label className="block text-xs font-medium text-ink" htmlFor="adm-reset-confirm">
+              Konfirmasi kata sandi baru
+            </label>
+            <input
+              id="adm-reset-confirm"
+              type="password"
+              required
+              minLength={6}
+              value={resetConfirmVal}
+              onChange={(e) => setResetConfirmVal(e.target.value)}
+              placeholder="Ulangi kata sandi baru"
+              className="mt-1.5 w-full rounded-lg border border-line bg-canvas px-3 py-2 text-sm text-ink"
+            />
+          </div>
+
+          {resetError && (
+            <div className="rounded-lg border border-red-200 bg-red-50 px-3.5 py-2.5 text-xs text-red-800">
+              {resetError}
+            </div>
+          )}
+
+          <div className="flex justify-end gap-2 pt-2">
+            <button
+              type="button"
+              onClick={() => setResetTarget(null)}
+              className="rounded-lg border border-line px-4 py-2 text-sm font-medium text-ink-muted hover:bg-subtle"
+            >
+              Batal
+            </button>
+            <button
+              type="submit"
+              disabled={resetting}
+              className="rounded-lg bg-accent px-4 py-2 text-sm font-semibold text-white hover:bg-accent-hover disabled:opacity-60"
+            >
+              {resetting ? 'Menyimpan...' : 'Simpan kata sandi baru'}
             </button>
           </div>
         </form>

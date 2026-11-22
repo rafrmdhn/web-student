@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useMemo, useState } from 'react';
 import {
   BookOpen,
   Calendar,
@@ -18,19 +18,19 @@ import {
   Trash2,
 } from 'lucide-react';
 import { Modal } from '../../components/common/Modal';
-import { PotentialRadarChart } from '../../components/common/PotentialRadarChart';
 import { RichTextViewer } from '../../components/common/RichTextViewer';
 import { StatCard } from '../../components/common/StatCard';
 import {
   DashboardLayout,
   type DashboardNavItem,
 } from '../../components/layout/DashboardLayout';
+import { PotentialMapSection } from '../../components/student/PotentialMapSection';
 import { useApp } from '../../context/AppContext';
 import type { ActionStep, FollowupStatus, PlanTimeframe } from '../../types';
 
 const STUDENT_NAV: DashboardNavItem[] = [
   { id: 'ringkasan', label: 'Beranda', icon: <LayoutDashboard className="h-4 w-4" /> },
-  { id: 'kenali-diriku', label: 'Kenali Diriku', icon: <BookOpen className="h-4 w-4" /> },
+  { id: 'materi', label: 'Materi', icon: <BookOpen className="h-4 w-4" /> },
   { id: 'peta-potensi', label: 'Peta Potensi', icon: <Compass className="h-4 w-4" /> },
   { id: 'rencana-masa-depan', label: 'Rencana Masa Depan', icon: <Target className="h-4 w-4" /> },
   {
@@ -62,6 +62,9 @@ export const StudentDashboard: React.FC = () => {
     materialProgress,
     reflectionActivities,
     studentReflections,
+    potentialQuestions,
+    potentialQuestionsError,
+    reloadPotentialQuestions,
     potentialMaps,
     futurePlans,
     counselorFollowups,
@@ -110,7 +113,7 @@ export const StudentDashboard: React.FC = () => {
     [reflectionActivities]
   );
 
-  // Kenali Diriku state
+  // Materi state
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedCategory, setSelectedCategory] = useState('Semua');
   const [readingMaterialId, setReadingMaterialId] = useState<string>(
@@ -137,29 +140,6 @@ export const StudentDashboard: React.FC = () => {
 
   const readingMaterial =
     filteredMaterials.find((m) => m.id === readingMaterialId) ?? filteredMaterials[0];
-
-  // Peta Potensi state
-  const [scores, setScores] = useState({
-    academic_score: myMap?.academic_score ?? 75,
-    social_score: myMap?.social_score ?? 75,
-    creative_score: myMap?.creative_score ?? 75,
-    leadership_score: myMap?.leadership_score ?? 70,
-    technical_score: myMap?.technical_score ?? 70,
-    top_strengths: myMap?.top_strengths ?? '',
-    top_interests: myMap?.top_interests ?? '',
-  });
-
-  useEffect(() => {
-    setScores({
-      academic_score: myMap?.academic_score ?? 75,
-      social_score: myMap?.social_score ?? 75,
-      creative_score: myMap?.creative_score ?? 75,
-      leadership_score: myMap?.leadership_score ?? 70,
-      technical_score: myMap?.technical_score ?? 70,
-      top_strengths: myMap?.top_strengths ?? '',
-      top_interests: myMap?.top_interests ?? '',
-    });
-  }, [myMap]);
 
   // Modal: Refleksi state
   const [reflectionModalOpen, setReflectionModalOpen] = useState(false);
@@ -244,7 +224,7 @@ export const StudentDashboard: React.FC = () => {
             <StatCard
               label="Materi selesai"
               value={`${completedIds.size}/${publishedMaterials.length}`}
-              hint={`${progressPct}% dari katalog Kenali Diriku`}
+              hint={`${progressPct}% dari katalog Materi`}
               icon={<BookOpen className="h-4 w-4" />}
               accent
             />
@@ -359,8 +339,8 @@ export const StudentDashboard: React.FC = () => {
         </div>
       )}
 
-      {/* TAB 2: KENALI DIRIKU */}
-      {activeTab === 'kenali-diriku' && (
+      {/* TAB 2: MATERI */}
+      {activeTab === 'materi' && (
         <div className="space-y-5">
           <div className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-line bg-paper p-4">
             <div className="relative min-w-[220px] flex-1">
@@ -469,110 +449,15 @@ export const StudentDashboard: React.FC = () => {
         </div>
       )}
 
-      {/* TAB 3: PETA POTENSI */}
+      {/* TAB 3: PETA POTENSI (Kuesioner 25 Pertanyaan dari Database + Grafik Radar + Interpretasi) */}
       {activeTab === 'peta-potensi' && (
-        <div className="grid gap-6 lg:grid-cols-12">
-          <div className="rounded-2xl border border-line bg-paper p-6 lg:col-span-6">
-            <h2 className="font-display text-lg font-semibold text-ink">
-              Visualisasi lima dimensi potensi
-            </h2>
-            <p className="mt-1 text-xs leading-relaxed text-ink-muted">
-              Grafik berubah langsung saat kamu menyesuaikan nilai di sisi kanan.
-            </p>
-            <div className="mt-4">
-              <PotentialRadarChart scores={scores} height={310} />
-            </div>
-            <div className="mt-4 grid grid-cols-5 gap-2 border-t border-line pt-4 text-center">
-              {[
-                { label: 'Akademik', val: scores.academic_score },
-                { label: 'Sosial', val: scores.social_score },
-                { label: 'Kreatif', val: scores.creative_score },
-                { label: 'Pimpin', val: scores.leadership_score },
-                { label: 'Teknis', val: scores.technical_score },
-              ].map((item) => (
-                <div key={item.label} className="rounded-lg bg-canvas py-2">
-                  <p className="text-[11px] text-ink-muted">{item.label}</p>
-                  <p className="font-display text-base font-bold text-ink">{item.val}</p>
-                </div>
-              ))}
-            </div>
-          </div>
-
-          <form
-            onSubmit={(e) => {
-              e.preventDefault();
-              void savePotentialMap(scores);
-            }}
-            className="space-y-4 rounded-2xl border border-line bg-paper p-6 lg:col-span-6"
-          >
-            <h2 className="font-display text-lg font-semibold text-ink">
-              Atur skor dan catatan kekuatan
-            </h2>
-
-            {(
-              [
-                ['academic_score', 'Akademik'],
-                ['social_score', 'Sosial'],
-                ['creative_score', 'Kreatif'],
-                ['leadership_score', 'Kepemimpinan'],
-                ['technical_score', 'Teknis'],
-              ] as const
-            ).map(([key, label]) => (
-              <div key={key}>
-                <div className="flex justify-between text-xs font-medium text-ink">
-                  <label htmlFor={`pm-${key}`}>{label}</label>
-                  <span className="tabular-nums text-ink-muted">{scores[key]} / 100</span>
-                </div>
-                <input
-                  id={`pm-${key}`}
-                  type="range"
-                  min={10}
-                  max={100}
-                  value={scores[key]}
-                  onChange={(e) =>
-                    setScores((prev) => ({ ...prev, [key]: Number(e.target.value) }))
-                  }
-                  className="mt-1.5 h-1.5 w-full cursor-pointer accent-[var(--accent-primary)]"
-                />
-              </div>
-            ))}
-
-            <div>
-              <label className="block text-xs font-medium text-ink" htmlFor="pm-strengths">
-                Kekuatan utama diri
-              </label>
-              <input
-                id="pm-strengths"
-                type="text"
-                value={scores.top_strengths}
-                onChange={(e) => setScores((prev) => ({ ...prev, top_strengths: e.target.value }))}
-                placeholder="Contoh: Teliti analisis, komunikasi kelompok, desain visual"
-                className="mt-1.5 w-full rounded-lg border border-line bg-canvas px-3 py-2 text-sm text-ink"
-              />
-            </div>
-
-            <div>
-              <label className="block text-xs font-medium text-ink" htmlFor="pm-interests">
-                Minat utama saat ini
-              </label>
-              <input
-                id="pm-interests"
-                type="text"
-                value={scores.top_interests}
-                onChange={(e) => setScores((prev) => ({ ...prev, top_interests: e.target.value }))}
-                placeholder="Contoh: Desain produk, bioteknologi, komunikasi sains"
-                className="mt-1.5 w-full rounded-lg border border-line bg-canvas px-3 py-2 text-sm text-ink"
-              />
-            </div>
-
-            <button
-              type="submit"
-              className="rounded-lg bg-accent px-5 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-accent-hover"
-            >
-              Simpan peta potensi
-            </button>
-          </form>
-        </div>
+        <PotentialMapSection
+          questions={potentialQuestions}
+          questionsError={potentialQuestionsError}
+          onReloadQuestions={reloadPotentialQuestions}
+          savedMap={myMap}
+          onSave={savePotentialMap}
+        />
       )}
 
       {/* TAB 4: RENCANA MASA DEPAN (Modal CRUD) */}
@@ -829,7 +714,7 @@ export const StudentDashboard: React.FC = () => {
                 </h3>
               </div>
               <ol className="mt-4 space-y-3 text-sm leading-relaxed text-ink-muted">
-                <li>1. Mulai dari menu Kenali Diriku untuk membaca materi pengenalan diri.</li>
+                <li>1. Mulai dari menu Materi untuk membaca materi pengenalan diri.</li>
                 <li>2. Isi Peta Potensi secara jujur sesuai kondisi belajarmu saat ini.</li>
                 <li>3. Buat minimal satu Rencana Masa Depan beserta langkah aksi kecil.</li>
                 <li>

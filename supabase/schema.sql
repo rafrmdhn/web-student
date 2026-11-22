@@ -60,6 +60,16 @@ create table if not exists public.student_reflections (
   created_at timestamptz not null default now()
 );
 
+-- 5b. Tabel Pertanyaan Kuesioner Peta Potensi (25 pertanyaan, 5 dimensi)
+create table if not exists public.potential_questions (
+  id uuid primary key default gen_random_uuid(),
+  question_number int not null unique,
+  dimension text not null check (dimension in ('akademik', 'sosial', 'kreatif', 'kepemimpinan', 'teknis')),
+  question_text text not null,
+  is_active boolean not null default true,
+  created_at timestamptz not null default now()
+);
+
 -- 6. Tabel Peta Potensi Siswa (1:1 per siswa)
 create table if not exists public.potential_maps (
   id uuid primary key default gen_random_uuid(),
@@ -198,6 +208,7 @@ alter table public.materials enable row level security;
 alter table public.material_progress enable row level security;
 alter table public.reflection_activities enable row level security;
 alter table public.student_reflections enable row level security;
+alter table public.potential_questions enable row level security;
 alter table public.potential_maps enable row level security;
 alter table public.future_plans enable row level security;
 alter table public.counselor_followups enable row level security;
@@ -212,6 +223,9 @@ create policy "profiles_select_self_or_staff" on public.profiles
     id = auth.uid()
     or public.current_user_role() in ('guru_bk', 'admin')
   );
+
+create policy "profiles_insert_self" on public.profiles
+  for insert with check (id = auth.uid());
 
 create policy "profiles_update_self_consent" on public.profiles
   for update using (id = auth.uid())
@@ -258,6 +272,13 @@ create policy "student_reflections_bk_with_consent" on public.student_reflection
     public.current_user_role() = 'guru_bk'
     and public.student_allows_sharing(student_id)
   );
+
+-- POTENTIAL_QUESTIONS (Dibaca semua user login; dikelola Guru BK & Admin)
+create policy "potential_questions_read_active" on public.potential_questions
+  for select using (is_active = true or public.current_user_role() in ('guru_bk', 'admin'));
+
+create policy "potential_questions_manage_staff" on public.potential_questions
+  for all using (public.current_user_role() in ('guru_bk', 'admin'));
 
 -- POTENTIAL_MAPS (Privasi ketat: Guru BK hanya boleh membaca jika siswa opt-in)
 create policy "potential_maps_own" on public.potential_maps
@@ -315,3 +336,41 @@ create policy "activity_logs_insert_authenticated" on public.activity_logs
 
 create policy "activity_logs_admin_read" on public.activity_logs
   for select using (public.current_user_role() = 'admin');
+
+
+-- ============================================================================
+-- RPC Admin: Reset Kata Sandi Pengguna (untuk user yang lupa password)
+-- Hanya dapat dipanggil oleh pengguna dengan role = 'admin'.
+-- ============================================================================
+create or replace function public.admin_reset_user_password(
+  target_user_id uuid,
+  new_password text
+)
+returns void
+language plpgsql
+security definer
+set search_path = public, auth, extensions
+as $$
+begin
+  if public.current_user_role() <> 'admin' then
+    raise exception 'Hanya Admin yang dapat mereset kata sandi pengguna lain.';
+  end if;
+
+  if new_password is null or length(new_password) < 6 then
+    raise exception 'Kata sandi baru minimal 6 karakter.';
+  end if;
+
+  update auth.users
+  set
+    encrypted_password = crypt(new_password, gen_salt('bf')),
+    updated_at = now()
+  where id = target_user_id;
+
+  if not found then
+    raise exception 'Pengguna tidak ditemukan di Supabase Auth.';
+  end if;
+end;
+$$;
+
+revoke all on function public.admin_reset_user_password(uuid, text) from public;
+grant execute on function public.admin_reset_user_password(uuid, text) to authenticated;
