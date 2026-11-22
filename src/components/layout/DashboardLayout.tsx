@@ -21,7 +21,7 @@ export interface DashboardNavItem {
 
 interface DashboardLayoutProps {
   title: string;
-  subtitle: string;
+  subtitle?: string;
   navItems: DashboardNavItem[];
   children: React.ReactNode;
 }
@@ -34,7 +34,6 @@ const ROLE_LABELS: Record<UserRole, string> = {
 
 export const DashboardLayout: React.FC<DashboardLayoutProps> = ({
   title,
-  subtitle,
   navItems,
   children,
 }) => {
@@ -127,18 +126,19 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({
       {/* Mobile overlay */}
       {sidebarOpen && (
         <div
-          className="fixed inset-0 z-40 bg-ink/30 lg:hidden"
+          className="fixed inset-0 z-40 bg-ink/40 backdrop-blur-[1px] lg:hidden"
           onClick={() => setSidebarOpen(false)}
+          aria-hidden="true"
         />
       )}
 
       {/* Sidebar */}
       <aside
-        className={`fixed inset-y-0 left-0 z-50 flex w-64 flex-col border-r border-line bg-paper transition-transform duration-200 lg:translate-x-0 ${
+        className={`fixed inset-y-0 left-0 z-50 flex w-72 flex-col border-r border-line bg-paper shadow-xl transition-transform duration-200 ease-out lg:w-64 lg:translate-x-0 lg:shadow-none ${
           sidebarOpen ? 'translate-x-0' : '-translate-x-full'
         }`}
       >
-        <div className="flex items-center justify-between border-b border-line px-5 py-4">
+        <div className="flex h-16 shrink-0 items-center justify-between border-b border-line px-5 sm:h-[72px]">
           <button
             type="button"
             onClick={() => handleSelectNav('ringkasan')}
@@ -159,7 +159,7 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({
           <button
             type="button"
             onClick={() => setSidebarOpen(false)}
-            className="rounded-lg p-1.5 text-ink-muted hover:bg-subtle lg:hidden"
+            className="flex h-8 w-8 items-center justify-center rounded-lg bg-subtle text-ink-muted transition-colors hover:bg-line/70 hover:text-ink lg:hidden"
             aria-label="Tutup menu samping"
           >
             <X className="h-4 w-4" />
@@ -174,7 +174,7 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({
                 key={item.id}
                 type="button"
                 onClick={() => handleSelectNav(item.id)}
-                className={`flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-left text-sm font-medium transition-colors ${
+                className={`flex w-full items-center gap-3 rounded-xl px-3.5 py-2.5 text-left text-sm font-medium transition-colors ${
                   isActive
                     ? 'bg-accent-soft text-accent-ink'
                     : 'text-ink-muted hover:bg-subtle hover:text-ink'
@@ -186,29 +186,74 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({
             );
           })}
         </nav>
+
+        {/* Mobile-only user profile & logout section */}
+        {currentUser && (
+          <div className="border-t border-line bg-canvas/70 p-4 lg:hidden">
+            <div className="flex items-center gap-3">
+              <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-accent font-display text-xs font-semibold text-white">
+                {userInitials}
+              </span>
+              <div className="min-w-0 flex-1">
+                <p className="truncate text-sm font-semibold text-ink">{currentUser.full_name}</p>
+                <p className="truncate text-xs text-ink-muted">
+                  {ROLE_LABELS[currentUser.role]}
+                  {currentUser.class_name ? ` (${currentUser.class_name})` : ''}
+                </p>
+              </div>
+            </div>
+
+            <div className="mt-3 grid grid-cols-2 gap-2">
+              <button
+                type="button"
+                onClick={() => {
+                  setSidebarOpen(false);
+                  openPasswordModal();
+                }}
+                className="flex items-center justify-center gap-1.5 rounded-xl border border-line bg-paper px-3 py-2 text-xs font-semibold text-ink transition-colors hover:bg-subtle"
+              >
+                <KeyRound className="h-3.5 w-3.5 text-accent" />
+                <span>Password</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setSidebarOpen(false);
+                  void logout();
+                }}
+                className="flex items-center justify-center gap-1.5 rounded-xl border border-red-200 bg-red-50 px-3 py-2 text-xs font-semibold text-red-700 transition-colors hover:bg-red-100"
+              >
+                <LogOut className="h-3.5 w-3.5" />
+                <span>Keluar</span>
+              </button>
+            </div>
+          </div>
+        )}
       </aside>
 
       {/* Main Content */}
       <div className="flex min-h-screen flex-col lg:pl-64">
-        <header className="sticky top-0 z-30 border-b border-line bg-paper">
-          <div className="flex flex-wrap items-center justify-between gap-3 px-4 py-3.5 sm:px-6 lg:px-8">
-            <div className="flex items-center gap-3">
+        <header className="sticky top-0 z-30 bg-paper">
+          <div className="flex h-16 items-center justify-between gap-3 border-b border-line px-4 sm:h-[72px] sm:px-6 lg:px-8">
+            <div className="flex min-w-0 items-center gap-3">
               <button
                 type="button"
                 onClick={() => setSidebarOpen(true)}
-                className="flex h-9 w-9 items-center justify-center rounded-lg border border-line text-ink lg:hidden"
-                aria-label="Buka menu samping"
+                className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-line bg-canvas text-ink transition-all hover:border-accent/40 hover:bg-subtle active:scale-95 lg:hidden"
+                aria-label="Buka menu navigasi"
+                aria-expanded={sidebarOpen}
               >
                 <Menu className="h-5 w-5" />
               </button>
-              <div>
-                <h1 className="font-display text-xl font-semibold text-ink">{title}</h1>
-                <p className="text-xs text-ink-muted sm:text-sm">{subtitle}</p>
+              <div className="min-w-0">
+                <h1 className="truncate font-display text-lg font-semibold text-ink sm:text-xl">
+                  {title}
+                </h1>
               </div>
             </div>
 
             {currentUser && (
-              <div className="relative" ref={profileMenuRef}>
+              <div className="relative hidden lg:block" ref={profileMenuRef}>
                 <button
                   type="button"
                   onClick={() => setProfileMenuOpen((prev) => !prev)}
@@ -322,7 +367,7 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({
           </div>
 
           {siteSettings.show_announcement_banner && topAnnouncement && (
-            <div className="border-t border-line bg-accent-soft px-4 py-2 text-xs text-accent-ink sm:px-6 lg:px-8">
+            <div className="border-b border-line bg-accent-soft px-4 py-2 text-xs text-accent-ink sm:px-6 lg:px-8">
               <div className="flex items-start gap-2">
                 <Megaphone className="mt-0.5 h-3.5 w-3.5 shrink-0 text-accent" />
                 <p className="leading-relaxed">
