@@ -252,7 +252,7 @@ export const AdminDashboard: React.FC = () => {
           </div>
 
           <div className="grid gap-6 lg:grid-cols-12">
-            <div className="rounded-2xl border border-line bg-paper p-6 lg:col-span-6">
+            <div className="rounded-2xl bg-paper p-6 ring-1 ring-line/60 lg:col-span-6">
               <h2 className="font-display text-lg font-semibold text-ink">
                 Pengguna berdasarkan peran
               </h2>
@@ -269,7 +269,7 @@ export const AdminDashboard: React.FC = () => {
               </div>
             </div>
 
-            <div className="rounded-2xl border border-line bg-paper p-6 lg:col-span-6">
+            <div className="rounded-2xl bg-paper p-6 ring-1 ring-line/60 lg:col-span-6">
               <h2 className="font-display text-lg font-semibold text-ink">Status modul sistem</h2>
               <div className="mt-4 space-y-2.5">
                 {[
@@ -281,7 +281,7 @@ export const AdminDashboard: React.FC = () => {
                 ].map((mod) => (
                   <div
                     key={mod}
-                    className="flex items-center justify-between rounded-xl border border-line bg-canvas px-4 py-3 text-sm"
+                    className="flex items-center justify-between rounded-xl bg-canvas px-4 py-3 text-sm"
                   >
                     <span className="font-medium text-ink">{mod}</span>
                     <span className="inline-flex items-center gap-1 text-xs font-semibold text-accent">
@@ -295,7 +295,7 @@ export const AdminDashboard: React.FC = () => {
           </div>
 
           {/* Activity Logs Table */}
-          <div className="rounded-2xl border border-line bg-paper p-6">
+          <div className="rounded-2xl bg-paper p-6 ring-1 ring-line/60">
             <h2 className="font-display text-lg font-semibold text-ink">Log aktivitas terbaru</h2>
             <div className="mt-4 overflow-x-auto">
               <table className="w-full text-left text-sm">
@@ -335,7 +335,7 @@ export const AdminDashboard: React.FC = () => {
       {/* TAB 2: KELOLA AKUN & HAK AKSES (Modal CRUD) */}
       {activeTab === 'akun' && (
         <div className="space-y-5">
-          <div className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-line bg-paper p-5">
+          <div className="flex flex-wrap items-center justify-between gap-3">
             <div>
               <h2 className="font-display text-lg font-semibold text-ink">
                 Kelola akun dan hak akses
@@ -354,7 +354,7 @@ export const AdminDashboard: React.FC = () => {
             </button>
           </div>
 
-          <div className="rounded-2xl border border-line bg-paper p-6">
+          <div className="rounded-2xl bg-paper p-6 ring-1 ring-line/60">
             <div className="overflow-x-auto">
               <table className="w-full text-left text-sm">
                 <thead>
@@ -422,7 +422,7 @@ export const AdminDashboard: React.FC = () => {
 
       {/* TAB 3: MODERASI MATERI */}
       {activeTab === 'materi' && (
-        <div className="rounded-2xl border border-line bg-paper p-6">
+        <div className="rounded-2xl bg-paper p-6 ring-1 ring-line/60">
           <h2 className="font-display text-lg font-semibold text-ink">Moderasi data materi</h2>
           <p className="mt-1 text-xs text-ink-muted">
             Ubah status publikasi materi atau arsipkan materi yang tidak lagi relevan.
@@ -431,7 +431,7 @@ export const AdminDashboard: React.FC = () => {
             {materials.map((mat) => (
               <div
                 key={mat.id}
-                className="flex flex-wrap items-center justify-between gap-4 rounded-xl border border-line bg-canvas p-4"
+                className="flex flex-wrap items-center justify-between gap-4 rounded-xl bg-canvas p-4"
               >
                 <div className="max-w-2xl">
                   <div className="flex items-center gap-2">
@@ -480,7 +480,7 @@ export const AdminDashboard: React.FC = () => {
       {activeTab === 'tampilan' && (
         <form
           onSubmit={handleSaveSettings}
-          className="max-w-2xl space-y-5 rounded-2xl border border-line bg-paper p-6"
+          className="max-w-2xl space-y-5 rounded-2xl bg-paper p-6 ring-1 ring-line/60"
         >
           <div>
             <h2 className="font-display text-lg font-semibold text-ink">
@@ -568,7 +568,7 @@ export const AdminDashboard: React.FC = () => {
       {/* TAB 5: INFORMASI & PENGUMUMAN (Modal CRUD) */}
       {activeTab === 'pengumuman' && (
         <div className="space-y-5">
-          <div className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-line bg-paper p-5">
+          <div className="flex flex-wrap items-center justify-between gap-3">
             <div>
               <h2 className="font-display text-lg font-semibold text-ink">Pengumuman global</h2>
               <p className="mt-0.5 text-xs text-ink-muted">
@@ -587,7 +587,7 @@ export const AdminDashboard: React.FC = () => {
 
           <div className="grid gap-4 md:grid-cols-2">
             {announcements.map((ann) => (
-              <div key={ann.id} className="rounded-2xl border border-line bg-paper p-5">
+              <div key={ann.id} className="rounded-2xl bg-paper p-5 ring-1 ring-line/60">
                 <div className="flex items-start justify-between gap-3">
                   <div>
                     <span

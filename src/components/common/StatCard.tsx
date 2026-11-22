@@ -11,8 +11,8 @@ interface StatCardProps {
 export const StatCard: React.FC<StatCardProps> = ({ label, value, hint, icon, accent = false }) => {
   return (
     <div
-      className={`rounded-xl border p-5 ${
-        accent ? 'border-accent/30 bg-accent-soft/60' : 'border-line bg-paper'
+      className={`rounded-2xl p-5 ${
+        accent ? 'bg-accent-soft/75' : 'bg-paper ring-1 ring-line/60'
       }`}
     >
       <div className="flex items-start justify-between gap-3">

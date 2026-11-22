@@ -309,7 +309,7 @@ export const CounselorDashboard: React.FC = () => {
           </div>
 
           <div className="grid gap-6 lg:grid-cols-12">
-            <div className="rounded-2xl border border-line bg-paper p-6 lg:col-span-7">
+            <div className="rounded-2xl bg-paper p-6 ring-1 ring-line/60 lg:col-span-7">
               <h2 className="font-display text-lg font-semibold text-ink">
                 Distribusi layanan dan partisipasi BK
               </h2>
@@ -326,7 +326,7 @@ export const CounselorDashboard: React.FC = () => {
               </div>
             </div>
 
-            <div className="rounded-2xl border border-line bg-paper p-6 lg:col-span-5">
+            <div className="rounded-2xl bg-paper p-6 ring-1 ring-line/60 lg:col-span-5">
               <h2 className="font-display text-lg font-semibold text-ink">
                 Status persetujuan privasi siswa
               </h2>
@@ -334,7 +334,7 @@ export const CounselorDashboard: React.FC = () => {
                 {students.map((st) => (
                   <div
                     key={st.id}
-                    className="flex items-center justify-between rounded-xl border border-line bg-canvas px-4 py-3"
+                    className="flex items-center justify-between rounded-xl bg-canvas px-4 py-3"
                   >
                     <div>
                       <p className="text-sm font-semibold text-ink">{st.full_name}</p>
@@ -360,7 +360,7 @@ export const CounselorDashboard: React.FC = () => {
       {/* TAB 2: KELOLA MATERI BK (Modal CRUD) */}
       {activeTab === 'materi' && (
         <div className="space-y-5">
-          <div className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-line bg-paper p-5">
+          <div className="flex flex-wrap items-center justify-between gap-3">
             <div>
               <h2 className="font-display text-lg font-semibold text-ink">
                 Kelola materi pengenalan diri
@@ -381,7 +381,7 @@ export const CounselorDashboard: React.FC = () => {
 
           <div className="grid gap-4 md:grid-cols-2">
             {materials.map((mat) => (
-              <div key={mat.id} className="rounded-2xl border border-line bg-paper p-5">
+              <div key={mat.id} className="rounded-2xl bg-paper p-5 ring-1 ring-line/60">
                 <div className="flex items-start justify-between gap-3">
                   <div>
                     <div className="flex items-center gap-2">
@@ -431,7 +431,7 @@ export const CounselorDashboard: React.FC = () => {
       {/* TAB 3: KEGIATAN REFLEKSI SISWA (Modal CRUD) */}
       {activeTab === 'kegiatan-refleksi' && (
         <div className="space-y-5">
-          <div className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-line bg-paper p-5">
+          <div className="flex flex-wrap items-center justify-between gap-3">
             <div>
               <h2 className="font-display text-lg font-semibold text-ink">
                 Kegiatan refleksi siswa
@@ -452,7 +452,7 @@ export const CounselorDashboard: React.FC = () => {
 
           <div className="grid gap-4 md:grid-cols-2">
             {reflectionActivities.map((act) => (
-              <div key={act.id} className="rounded-2xl border border-line bg-paper p-5">
+              <div key={act.id} className="rounded-2xl bg-paper p-5 ring-1 ring-line/60">
                 <div className="flex items-start justify-between gap-3">
                   <div>
                     <div className="flex items-center gap-2">
@@ -648,7 +648,7 @@ export const CounselorDashboard: React.FC = () => {
       {/* TAB 5: ARAHAN & TINDAK LANJUT (Modal CRUD) */}
       {activeTab === 'tindak-lanjut' && (
         <div className="space-y-5">
-          <div className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-line bg-paper p-5">
+          <div className="flex flex-wrap items-center justify-between gap-3">
             <div>
               <h2 className="font-display text-lg font-semibold text-ink">
                 Arahan dan tindak lanjut siswa
@@ -671,7 +671,7 @@ export const CounselorDashboard: React.FC = () => {
             {counselorFollowups.map((fu) => {
               const st = profiles.find((p) => p.id === fu.student_id);
               return (
-                <div key={fu.id} className="rounded-2xl border border-line bg-paper p-5">
+                <div key={fu.id} className="rounded-2xl bg-paper p-5 ring-1 ring-line/60">
                   <div className="flex flex-wrap items-center justify-between gap-2">
                     <p className="font-display text-base font-semibold text-ink">
                       {st?.full_name ?? 'Siswa'} ({st?.class_name ?? ''})
@@ -694,7 +694,7 @@ export const CounselorDashboard: React.FC = () => {
       {/* TAB 6: INFORMASI KONSULTASI BK (Modal CRUD) */}
       {activeTab === 'konsultasi' && (
         <div className="space-y-5">
-          <div className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-line bg-paper p-5">
+          <div className="flex flex-wrap items-center justify-between gap-3">
             <div>
               <h2 className="font-display text-lg font-semibold text-ink">
                 Informasi dan jadwal konsultasi BK
@@ -715,7 +715,7 @@ export const CounselorDashboard: React.FC = () => {
 
           <div className="grid gap-4 md:grid-cols-2">
             {consultationInfo.map((info) => (
-              <div key={info.id} className="rounded-2xl border border-line bg-paper p-5">
+              <div key={info.id} className="rounded-2xl bg-paper p-5 ring-1 ring-line/60">
                 <div className="flex items-start justify-between gap-3">
                   <div>
                     <h3 className="font-display text-base font-semibold text-ink">

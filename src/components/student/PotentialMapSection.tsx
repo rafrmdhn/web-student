@@ -197,7 +197,7 @@ export const PotentialMapSection: React.FC<PotentialMapSectionProps> = ({
   if (stage === 'guide') {
     return (
       <div className="space-y-6">
-        <div className="rounded-2xl border border-line bg-paper p-6 sm:p-8">
+        <div className="rounded-2xl bg-paper p-6 ring-1 ring-line/60 sm:p-8">
           <div className="flex flex-wrap items-start justify-between gap-4 border-b border-line pb-5">
             <div className="max-w-2xl">
               <div className="inline-flex items-center gap-2 rounded-full bg-accent-soft px-3 py-1 text-xs font-semibold text-accent-ink">
@@ -257,7 +257,7 @@ export const PotentialMapSection: React.FC<PotentialMapSectionProps> = ({
             </h3>
             <div className="mt-3 grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
               {POTENTIAL_DIMENSIONS.map((dim) => (
-                <div key={dim.id} className="rounded-xl border border-line bg-canvas p-4">
+                <div key={dim.id} className="rounded-xl bg-canvas p-4">
                   <div className="flex items-center justify-between gap-2">
                     <p className="font-display text-sm font-semibold text-ink">{dim.label}</p>
                     <span className="text-[11px] font-medium text-ink-muted">
@@ -272,7 +272,7 @@ export const PotentialMapSection: React.FC<PotentialMapSectionProps> = ({
 
           {/* Scale & Rules */}
           <div className="mt-6 grid gap-5 lg:grid-cols-12">
-            <div className="rounded-xl border border-line bg-canvas p-5 lg:col-span-7">
+            <div className="rounded-xl bg-canvas p-5 lg:col-span-7">
               <h3 className="font-display text-sm font-semibold text-ink">
                 Pilihan jawaban pada setiap pertanyaan
               </h3>
@@ -280,7 +280,7 @@ export const PotentialMapSection: React.FC<PotentialMapSectionProps> = ({
                 {ANSWER_OPTIONS.map((opt) => (
                   <div
                     key={opt.value}
-                    className="rounded-lg border border-line bg-paper px-3 py-2.5 text-center"
+                    className="rounded-lg bg-paper px-3 py-2.5 text-center ring-1 ring-line/60"
                   >
                     <p className="font-display text-lg font-bold text-accent">{opt.value}</p>
                     <p className="mt-0.5 text-xs font-medium text-ink">{opt.label}</p>
@@ -289,7 +289,7 @@ export const PotentialMapSection: React.FC<PotentialMapSectionProps> = ({
               </div>
             </div>
 
-            <div className="rounded-xl border border-line bg-canvas p-5 lg:col-span-5">
+            <div className="rounded-xl bg-canvas p-5 lg:col-span-5">
               <h3 className="font-display text-sm font-semibold text-ink">
                 Hal yang perlu diperhatikan
               </h3>
@@ -565,7 +565,7 @@ export const PotentialMapSection: React.FC<PotentialMapSectionProps> = ({
   return (
     <div className="space-y-6">
       {/* Header Banner */}
-      <div className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-line bg-paper p-5">
+      <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
           <div className="flex flex-wrap items-center gap-2">
             <h2 className="font-display text-xl font-bold text-ink">Hasil Peta Potensi Diri</h2>
@@ -603,7 +603,7 @@ export const PotentialMapSection: React.FC<PotentialMapSectionProps> = ({
 
       {/* Radar Chart + Kekuatan & Minat + Simpan */}
       <div className="grid gap-6 lg:grid-cols-12">
-        <div className="rounded-2xl border border-line bg-paper p-6 lg:col-span-6">
+        <div className="rounded-2xl bg-paper p-6 ring-1 ring-line/60 lg:col-span-6">
           <h3 className="font-display text-lg font-semibold text-ink">
             Grafik radar lima dimensi potensi
           </h3>
@@ -627,7 +627,7 @@ export const PotentialMapSection: React.FC<PotentialMapSectionProps> = ({
 
         <form
           onSubmit={handleSaveMap}
-          className="flex flex-col justify-between space-y-5 rounded-2xl border border-line bg-paper p-6 lg:col-span-6"
+          className="flex flex-col justify-between space-y-5 rounded-2xl bg-paper p-6 ring-1 ring-line/60 lg:col-span-6"
         >
           <div className="space-y-4">
             <div>
@@ -640,7 +640,7 @@ export const PotentialMapSection: React.FC<PotentialMapSectionProps> = ({
               </p>
             </div>
 
-            <div className="rounded-xl border border-line bg-canvas p-4">
+            <div className="rounded-xl bg-canvas p-4">
               <p className="text-xs font-semibold text-ink">Ringkasan skor hasil kuesioner</p>
               <div className="mt-2.5 space-y-2">
                 {interpretations.map((item) => (
@@ -715,7 +715,7 @@ export const PotentialMapSection: React.FC<PotentialMapSectionProps> = ({
       </div>
 
       {/* Interpretasi Hasil & Rekomendasi Pengembangan per Dimensi */}
-      <div className="rounded-2xl border border-line bg-paper p-6">
+      <div className="rounded-2xl bg-paper p-6 ring-1 ring-line/60">
         <h3 className="font-display text-lg font-semibold text-ink">
           Interpretasi hasil dan rekomendasi pengembangan potensi
         </h3>
@@ -726,7 +726,7 @@ export const PotentialMapSection: React.FC<PotentialMapSectionProps> = ({
 
         <div className="mt-5 grid gap-4 md:grid-cols-2">
           {interpretations.map((item) => (
-            <div key={item.dimension.id} className="rounded-xl border border-line bg-canvas p-5">
+            <div key={item.dimension.id} className="rounded-xl bg-canvas p-5">
               <div className="flex flex-wrap items-center justify-between gap-2">
                 <div className="flex items-center gap-2">
                   <h4 className="font-display text-base font-semibold text-ink">

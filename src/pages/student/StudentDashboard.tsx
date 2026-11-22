@@ -254,7 +254,7 @@ export const StudentDashboard: React.FC = () => {
 
           <div className="grid gap-6 lg:grid-cols-12">
             {/* Active reflection tasks from BK */}
-            <div className="rounded-2xl border border-line bg-paper p-6 lg:col-span-7">
+            <div className="rounded-2xl bg-paper p-6 ring-1 ring-line/60 lg:col-span-7">
               <div className="flex items-center justify-between gap-2">
                 <h2 className="font-display text-lg font-semibold text-ink">
                   Kegiatan refleksi dari Guru BK
@@ -269,7 +269,7 @@ export const StudentDashboard: React.FC = () => {
               </div>
               <div className="mt-4 space-y-3">
                 {activeActivities.map((act) => (
-                  <div key={act.id} className="rounded-xl border border-line bg-canvas p-4">
+                  <div key={act.id} className="rounded-xl bg-canvas p-4">
                     <div className="flex flex-wrap items-center justify-between gap-2">
                       <h3 className="text-sm font-semibold text-ink">{act.title}</h3>
                       <span className="text-xs text-ink-muted">Tenggat {act.due_date}</span>
@@ -295,7 +295,7 @@ export const StudentDashboard: React.FC = () => {
 
             {/* Quick shortcuts & latest announcements */}
             <div className="space-y-4 lg:col-span-5">
-              <div className="rounded-2xl border border-line bg-paper p-6">
+              <div className="rounded-2xl bg-paper p-6 ring-1 ring-line/60">
                 <h2 className="font-display text-lg font-semibold text-ink">Pintasan cepat</h2>
                 <div className="mt-4 grid grid-cols-2 gap-2.5">
                   {[
@@ -308,7 +308,7 @@ export const StudentDashboard: React.FC = () => {
                       key={item.tab}
                       type="button"
                       onClick={() => setActiveTab(item.tab)}
-                      className="rounded-xl border border-line bg-canvas px-3 py-2.5 text-left text-xs font-semibold text-ink transition-colors hover:border-accent/40 hover:bg-accent-soft/40"
+                      className="rounded-xl bg-canvas px-3.5 py-2.5 text-left text-xs font-semibold text-ink transition-colors hover:bg-accent-soft/70 hover:text-accent-ink"
                     >
                       {item.label}
                     </button>
@@ -316,7 +316,7 @@ export const StudentDashboard: React.FC = () => {
                 </div>
               </div>
 
-              <div className="rounded-2xl border border-line bg-paper p-6">
+              <div className="rounded-2xl bg-paper p-6 ring-1 ring-line/60">
                 <h2 className="font-display text-lg font-semibold text-ink">
                   Pengumuman sekolah
                 </h2>
@@ -463,7 +463,7 @@ export const StudentDashboard: React.FC = () => {
       {/* TAB 4: RENCANA MASA DEPAN (Modal CRUD) */}
       {activeTab === 'rencana-masa-depan' && (
         <div className="space-y-5">
-          <div className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-line bg-paper p-5">
+          <div className="flex flex-wrap items-center justify-between gap-3">
             <div>
               <h2 className="font-display text-lg font-semibold text-ink">Rencana masa depan</h2>
               <p className="mt-0.5 text-xs text-ink-muted">
@@ -482,7 +482,7 @@ export const StudentDashboard: React.FC = () => {
 
           <div className="grid gap-5 md:grid-cols-2">
             {myPlans.map((plan) => (
-              <div key={plan.id} className="rounded-2xl border border-line bg-paper p-6">
+              <div key={plan.id} className="rounded-2xl bg-paper p-6 ring-1 ring-line/60">
                 <div className="flex items-start justify-between gap-3">
                   <div>
                     <span className="inline-block rounded-md bg-accent-soft px-2.5 py-0.5 text-xs font-semibold text-accent-ink">
@@ -552,7 +552,7 @@ export const StudentDashboard: React.FC = () => {
       {/* TAB 5: REFLEKSI DAN TINDAK LANJUT (Modal CRUD) */}
       {activeTab === 'refleksi' && (
         <div className="space-y-6">
-          <div className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-line bg-paper p-5">
+          <div className="flex flex-wrap items-center justify-between gap-3">
             <div>
               <h2 className="font-display text-lg font-semibold text-ink">
                 Refleksi dan tindak lanjut
@@ -573,7 +573,7 @@ export const StudentDashboard: React.FC = () => {
 
           <div className="grid gap-6 lg:grid-cols-12">
             {/* Riwayat Refleksi */}
-            <div className="rounded-2xl border border-line bg-paper p-6 lg:col-span-7">
+            <div className="rounded-2xl bg-paper p-6 ring-1 ring-line/60 lg:col-span-7">
               <h3 className="font-display text-base font-semibold text-ink">
                 Riwayat refleksi saya ({myReflections.length})
               </h3>
@@ -621,7 +621,7 @@ export const StudentDashboard: React.FC = () => {
             </div>
 
             {/* Arahan & Tindak Lanjut dari Guru BK */}
-            <div className="rounded-2xl border border-line bg-paper p-6 lg:col-span-5">
+            <div className="rounded-2xl bg-paper p-6 ring-1 ring-line/60 lg:col-span-5">
               <h3 className="font-display text-base font-semibold text-ink">
                 Arahan dan tindak lanjut Guru BK
               </h3>
@@ -632,7 +632,7 @@ export const StudentDashboard: React.FC = () => {
 
               <div className="mt-4 space-y-3">
                 {myFollowups.map((fu) => (
-                  <div key={fu.id} className="rounded-xl border border-line bg-canvas p-4">
+                  <div key={fu.id} className="rounded-xl bg-canvas p-4">
                     <div className="flex items-center justify-between gap-2">
                       <span
                         className={`rounded-full border px-2.5 py-0.5 text-xs font-semibold capitalize ${FOLLOWUP_BADGE[fu.status]}`}
@@ -666,7 +666,7 @@ export const StudentDashboard: React.FC = () => {
       {/* TAB 6: PRIVASI DAN BANTUAN */}
       {activeTab === 'privasi-bantuan' && (
         <div className="space-y-6">
-          <div className="rounded-2xl border border-line bg-paper p-6">
+          <div className="rounded-2xl bg-paper p-6 ring-1 ring-line/60">
             <div className="flex flex-wrap items-start justify-between gap-4">
               <div className="max-w-2xl">
                 <h2 className="font-display text-xl font-semibold text-ink">
@@ -706,7 +706,7 @@ export const StudentDashboard: React.FC = () => {
           </div>
 
           <div className="grid gap-6 lg:grid-cols-12">
-            <div className="rounded-2xl border border-line bg-paper p-6 lg:col-span-5">
+            <div className="rounded-2xl bg-paper p-6 ring-1 ring-line/60 lg:col-span-5">
               <div className="flex items-center gap-2">
                 <HelpCircle className="h-4 w-4 text-accent" />
                 <h3 className="font-display text-lg font-semibold text-ink">
@@ -724,13 +724,13 @@ export const StudentDashboard: React.FC = () => {
               </ol>
             </div>
 
-            <div className="rounded-2xl border border-line bg-paper p-6 lg:col-span-7">
+            <div className="rounded-2xl bg-paper p-6 ring-1 ring-line/60 lg:col-span-7">
               <h3 className="font-display text-lg font-semibold text-ink">
                 Jadwal dan kontak konsultasi BK
               </h3>
               <div className="mt-4 grid gap-4 sm:grid-cols-2">
                 {consultationInfo.map((info) => (
-                  <div key={info.id} className="rounded-xl border border-line bg-canvas p-4">
+                  <div key={info.id} className="rounded-xl bg-canvas p-4">
                     <p className="font-display text-sm font-semibold text-ink">
                       {info.counselor_name}
                     </p>
