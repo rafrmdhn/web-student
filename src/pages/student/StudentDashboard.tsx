@@ -72,6 +72,7 @@ export const StudentDashboard: React.FC = () => {
     announcements,
     toggleMaterialCompleted,
     saveReflection,
+    deleteReflection,
     savePotentialMap,
     createFuturePlan,
     togglePlanStep,
@@ -586,13 +587,24 @@ export const StudentDashboard: React.FC = () => {
                         <p className="text-sm font-semibold text-ink">
                           {act ? act.title : 'Refleksi pribadi mandiri'}
                         </p>
-                        <span className="text-xs text-ink-muted">
-                          {new Date(ref.created_at).toLocaleDateString('id-ID', {
-                            day: 'numeric',
-                            month: 'short',
-                            year: 'numeric',
-                          })}
-                        </span>
+                        <div className="flex items-center gap-2">
+                          <span className="text-xs text-ink-muted">
+                            {new Date(ref.created_at).toLocaleDateString('id-ID', {
+                              day: 'numeric',
+                              month: 'short',
+                              year: 'numeric',
+                            })}
+                          </span>
+                          <button
+                            type="button"
+                            onClick={() => void deleteReflection(ref.id)}
+                            className="rounded-lg p-1.5 text-ink-muted transition-colors hover:bg-subtle hover:text-red-700"
+                            aria-label="Hapus refleksi"
+                            title="Hapus refleksi"
+                          >
+                            <Trash2 className="h-4 w-4" />
+                          </button>
+                        </div>
                       </div>
                       <p className="mt-2 max-w-[70ch] text-sm leading-relaxed text-ink-muted">
                         {ref.reflection_content}

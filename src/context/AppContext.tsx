@@ -126,6 +126,7 @@ interface AppContextValue {
     strength_notes: string;
     reflection_content: string;
   }) => Promise<void>;
+  deleteReflection: (reflectionId: string) => Promise<void>;
   savePotentialMap: (input: {
     academic_score: number;
     social_score: number;
@@ -754,6 +755,27 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     showToast('Refleksi tersimpan ke database.');
   };
 
+  const deleteReflection = async (reflectionId: string) => {
+    if (!supabase || !currentUser) return;
+    const { error } = await supabase
+      .from('student_reflections')
+      .delete()
+      .eq('id', reflectionId)
+      .eq('student_id', currentUser.id);
+
+    if (error) {
+      showToast(`Gagal menghapus refleksi: ${error.message}`, 'error');
+      return;
+    }
+
+    setDb((prev) => ({
+      ...prev,
+      studentReflections: prev.studentReflections.filter((r) => r.id !== reflectionId),
+    }));
+    await appendLog('Menghapus Refleksi Diri', 'Refleksi & Tindak Lanjut', 'Siswa menghapus catatan refleksi.');
+    showToast('Refleksi dihapus.', 'info');
+  };
+
   const savePotentialMap = async (input: {
     academic_score: number;
     social_score: number;
@@ -1317,6 +1339,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     logout,
     toggleMaterialCompleted,
     saveReflection,
+    deleteReflection,
     savePotentialMap,
     createFuturePlan,
     togglePlanStep,
